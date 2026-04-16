@@ -1,0 +1,47 @@
+{
+  "name": "@ignacioCastro0713/cortex",
+  "version": "0.0.1",
+  "description": "Knowledge distribution engine — injects Skills and Agents into local projects via symlinks.",
+  "type": "module",
+  "bin": {
+    "cortex": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --experimental-test-module-mocks --test test/**/*.test.ts test/commands/**/*.test.ts"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "agents",
+    "skills",
+    "symlinks",
+    "copilot",
+    "gemini",
+    "knowledge-management",
+    "developer-tools"
+  ],
+  "author": "Ignacio Castro (https://github.com/IgnacioCastro0713)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IgnacioCastro0713/cortex.git"
+  },
+  "dependencies": {
+    "smol-toml": "^1.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "typescript": "^5.7.0"
+  }
+}
