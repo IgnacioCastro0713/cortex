@@ -4,10 +4,11 @@
   "description": "Knowledge distribution engine — injects Skills and Agents into local projects via symlinks.",
   "type": "module",
   "bin": {
-    "cortex": "./src/index.ts"
+    "cortex": "./bin/cortex.js"
   },
   "files": [
     "src/",
+    "bin/",
     "README.md"
   ],
   "scripts": {
