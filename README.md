@@ -30,23 +30,39 @@ cortex sync
 
 ## How it works
 
-```
- YOUR KNOWLEDGE (single source of truth)     YOUR PROJECTS (symlinks, always in sync)
- ─────────────────────────────────────────    ─────────────────────────────────────────
+```mermaid
+graph TB
+    Source["🧠 ~/.cortex/ai/
+    ─────────────────
+    agents/
+      └─ code-review.md
+    skills/
+      ├─ planning/
+      └─ implementation/"]
 
- ~/.cortex/ai/                                project-a/.github/
-   agents/                                      agents/
-     code-review.agent.md  ◄──────────────────    code-review.agent.md
-   skills/                                      skills/
-     planning/             ◄──────────────────    planning/
-     implementation/       ◄──────────────────    implementation/
+    subgraph cortex sync
+        CMD["cortex sync"]
+    end
 
-                                              project-b/.github/
-                                                agents/
-                                                  code-review.agent.md  (same link)
-                                                skills/
-                                                  planning/             (same link)
-                                                  implementation/       (same link)
+    Source -->|symlinks| CMD
+
+    CMD --> PA["project-a/
+    .github/
+      agents/ →
+      skills/ →"]
+
+    CMD --> PB["project-b/
+    .github/
+      agents/ →
+      skills/ →"]
+
+    CMD --> PC["project-c/
+    .gemini/
+      agents/ →
+      skills/ →"]
+
+    style Source fill:#2d5a27,color:#fff,stroke:#4a9e42
+    style CMD fill:#1a3a5c,color:#fff,stroke:#2e6da4
 ```
 
 Edit the source once → every project sees the change instantly.
