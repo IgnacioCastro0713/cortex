@@ -4,15 +4,16 @@
   "description": "Knowledge distribution engine — injects Skills and Agents into local projects via symlinks.",
   "type": "module",
   "bin": {
-    "cortex": "./bin/cortex.js"
+    "cortex": "./dist/index.js"
   },
   "files": [
-    "src/",
-    "bin/",
+    "dist/",
     "README.md"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
     "test": "node --experimental-test-module-mocks --test test/**/*.test.ts test/commands/**/*.test.ts"
   },
   "keywords": [
