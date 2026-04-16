@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
-[![Version](https://img.shields.io/badge/version-0.0.1-orange.svg)](package.json)
+[![npm version](https://img.shields.io/npm/v/@ignaciocastro0713/cortex.svg)](https://www.npmjs.com/package/@ignaciocastro0713/cortex)
 
 > **Write your AI knowledge once. Distribute it everywhere.**
 
