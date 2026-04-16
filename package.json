@@ -1,5 +1,5 @@
 {
-  "name": "@ignacioCastro0713/cortex",
+  "name": "@ignaciocastro0713/cortex",
   "version": "0.0.1",
   "description": "Knowledge distribution engine — injects Skills and Agents into local projects via symlinks.",
   "type": "module",
