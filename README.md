@@ -1,8 +1,9 @@
 # Cortex
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
 [![npm version](https://img.shields.io/npm/v/@ignaciocastro0713/cortex.svg)](https://www.npmjs.com/package/@ignaciocastro0713/cortex)
+[![npm downloads](https://img.shields.io/npm/dt/@ignaciocastro0713/cortex.svg)](https://www.npmjs.com/package/@ignaciocastro0713/cortex)
+[![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **Write your AI knowledge once. Distribute it everywhere.**
 

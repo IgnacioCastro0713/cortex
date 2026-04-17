@@ -19,6 +19,8 @@ const logMock = {
   error: mock.fn(),
   info: mock.fn(),
   dim: mock.fn(),
+  header: mock.fn(),
+  separator: mock.fn(),
 };
 
 mock.module(srcUrl("resolver.ts"), {
@@ -39,7 +41,10 @@ mock.module("node:fs/promises", {
 
 mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("constants.ts"), {
-  namedExports: { PLATFORM_TARGETS: { copilot: ".github", gemini: ".gemini" } },
+  namedExports: {
+    PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
+    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
+  },
 });
 
 const { list } = await import("../../src/commands/list.ts");
@@ -68,8 +73,8 @@ describe("list", () => {
 
     await list(CWD);
 
-    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("planning.md")));
-    assert.ok(logMock.plain.mock.calls.some((c) => String(c.arguments[0]).includes("Total: 1")));
+    assert.ok(logMock.plain.mock.calls.some((c) => String(c.arguments[0]).includes("planning.md")));
+    assert.ok(logMock.plain.mock.calls.some((c) => String(c.arguments[0]).includes("1 file(s)")));
   });
 
   it("flags broken source paths", async () => {
@@ -86,7 +91,7 @@ describe("list", () => {
 
     await list(CWD);
 
-    assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("BROKEN")));
+    assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("broken.md")));
   });
 
   it("shows hint when no files resolved", async () => {
@@ -100,7 +105,6 @@ describe("list", () => {
 
     await list(CWD);
 
-    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("no files resolved")));
-    assert.ok(logMock.plain.mock.calls.some((c) => String(c.arguments[0]).includes("Total: 0")));
+    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("No files resolved")));
   });
 });

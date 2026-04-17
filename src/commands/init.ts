@@ -5,22 +5,24 @@ import { log } from "../log.ts";
 import { CORTEX_DIR, AI_DIR, DEPS_DIR } from "../constants.ts";
 
 export async function init(): Promise<void> {
-  log.plain("⚡ Initializing Cortex...\n");
+  log.header("init");
 
   await ensureDir(path.join(AI_DIR, "agents"));
   await ensureDir(path.join(AI_DIR, "skills"));
   await ensureDir(DEPS_DIR);
-  log.success(`  ✓ Created ${CORTEX_DIR}/ai/agents`);
-  log.success(`  ✓ Created ${CORTEX_DIR}/ai/skills`);
+  log.success(`  ✓ ${CORTEX_DIR}/ai/agents`);
+  log.success(`  ✓ ${CORTEX_DIR}/ai/skills`);
+  log.success(`  ✓ ${CORTEX_DIR}/deps`);
 
   const configPath = getConfigPath();
   try {
     await readConfig();
-    log.info(`  ✓ ${configPath} already exists — skipping.`);
+    log.dim(`  ℹ ${configPath} already exists — skipping.`);
   } catch {
     await writeConfig(defaultConfig());
-    log.success(`  ✓ Generated ${configPath}`);
+    log.success(`  ✓ ${configPath}`);
   }
 
-  log.plain("\n✅ Cortex initialized. Edit ~/.cortex/cortex.toml to configure your knowledge sources.");
+  log.separator();
+  log.success("  ✓ Cortex initialized. Edit ~/.cortex/cortex.toml to configure your knowledge sources.");
 }

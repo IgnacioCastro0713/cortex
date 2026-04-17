@@ -16,6 +16,8 @@ const logMock = {
   error: mock.fn(),
   info: mock.fn(),
   dim: mock.fn(),
+  header: mock.fn(),
+  separator: mock.fn(),
 };
 
 mock.module(srcUrl("resolver.ts"), {
@@ -34,7 +36,10 @@ mock.module(srcUrl("fs-utils.ts"), {
 
 mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("constants.ts"), {
-  namedExports: { PLATFORM_TARGETS: { copilot: ".github", gemini: ".gemini" } },
+  namedExports: {
+    PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
+    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
+  },
 });
 
 const { clean } = await import("../../src/commands/clean.ts");

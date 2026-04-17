@@ -6,7 +6,7 @@ import { AI_DIR, DEPS_DIR } from "../constants.ts";
 import { readConfigOrExit } from "../resolver.ts";
 
 export async function update(): Promise<void> {
-  log.plain("🔄 Updating knowledge sources...\n");
+  log.header("update");
 
   const config = await readConfigOrExit();
 
@@ -30,5 +30,6 @@ export async function update(): Promise<void> {
     log.dim(`    ${out || "Done."}`);
   }
 
-  log.plain("\n✅ Update complete.");
+  log.separator();
+  log.success("  ✓ Update complete.");
 }

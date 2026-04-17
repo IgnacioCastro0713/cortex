@@ -24,6 +24,8 @@ const logMock = {
   error: mock.fn(),
   info: mock.fn(),
   dim: mock.fn(),
+  header: mock.fn(),
+  separator: mock.fn(),
 };
 
 mock.module(srcUrl("fs-utils.ts"), {
@@ -59,6 +61,7 @@ beforeEach(() => {
   writeConfigMock.mock.resetCalls();
   logMock.success.mock.resetCalls();
   logMock.info.mock.resetCalls();
+  logMock.dim.mock.resetCalls();
 });
 
 describe("init", () => {
@@ -80,7 +83,7 @@ describe("init", () => {
     await init();
 
     assert.equal(writeConfigMock.mock.callCount(), 0);
-    assert.ok(logMock.info.mock.calls.some((c) => String(c.arguments[0]).includes("already exists")));
+    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("already exists")));
   });
 
   it("writes default config when no config exists", async () => {

@@ -1,27 +1,28 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log.ts";
-import { PLATFORM_TARGETS } from "../constants.ts";
+import { getPlatform } from "../constants.ts";
 import { resolveEntries, getSections, readConfigOrExit } from "../resolver.ts";
 
 export async function list(cwd: string): Promise<void> {
-  log.plain("📋 Linked knowledge map:\n");
+  log.header("list");
 
   const config = await readConfigOrExit();
   let total = 0;
 
-  for (const platform of config.platforms) {
-    const targetBase = PLATFORM_TARGETS[platform];
-    if (!targetBase) continue;
+  for (const platformName of config.platforms) {
+    const platform = getPlatform(platformName);
+    if (!platform) continue;
+    const { name, targetDir } = platform;
 
-    log.plain(`  Platform: ${platform} (${targetBase}/)`);
+    log.plain(`\n  Platform: ${name} (${targetDir}/)`);
 
     for (const section of getSections(config)) {
-      log.plain(`    ${section.name}/`);
+      log.dim(`    ${section.name}/`);
 
       const entries = await resolveEntries(section.paths, cwd);
       for (const { source, fileName } of entries) {
-        const linkPath = path.join(cwd, targetBase, section.name, fileName);
+        const linkPath = path.join(cwd, targetDir, section.name, fileName);
         const relLink = path.relative(cwd, linkPath);
 
         let broken = false;
@@ -32,18 +33,21 @@ export async function list(cwd: string): Promise<void> {
         }
 
         if (broken) {
-          log.warn(`      ⚠ BROKEN ${relLink} → ${source}`);
+          log.warn(`      ⚠ ${relLink}`);
+          log.warn(`        → ${source} (not found)`);
         } else {
-          log.success(`      ${relLink} → ${source}`);
+          log.plain(`      ${relLink}`);
+          log.dim(`        → ${source}`);
         }
         total++;
       }
     }
   }
 
+  log.separator();
   if (total === 0) {
-    log.dim("  (no files resolved — run `cortex sync` after configuring cortex.toml)");
+    log.dim("  No files resolved — run `cortex sync` after configuring cortex.toml.");
+  } else {
+    log.plain(`  ${total} file(s) linked.`);
   }
-
-  log.plain(`\n  Total: ${total} file(s).`);
 }

@@ -20,6 +20,8 @@ const logMock = {
   error: mock.fn(),
   info: mock.fn(),
   dim: mock.fn(),
+  header: mock.fn(),
+  separator: mock.fn(),
 };
 
 mock.module(srcUrl("resolver.ts"), {
@@ -43,7 +45,10 @@ mock.module(srcUrl("fs-utils.ts"), {
 
 mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("constants.ts"), {
-  namedExports: { PLATFORM_TARGETS: { copilot: ".github", gemini: ".gemini" } },
+  namedExports: {
+    PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
+    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
+  },
 });
 
 const { sync } = await import("../../src/commands/sync.ts");
@@ -121,7 +126,7 @@ describe("sync", () => {
 
     assert.equal(createSymlinkMock.mock.callCount(), 0);
     assert.equal(cleanSymlinksMock.mock.callCount(), 0);
-    assert.ok(logMock.info.mock.calls.some((c) => String(c.arguments[0]).includes("[dry-run]")));
+    assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("dry-run")));
   });
 
   it("reports failed symlinks", async () => {
@@ -138,6 +143,6 @@ describe("sync", () => {
 
     await sync(CWD);
 
-    assert.ok(logMock.error.mock.calls.some((c) => String(c.arguments[0]).includes("Failed")));
+    assert.ok(logMock.error.mock.calls.some((c) => String(c.arguments[0]).includes("source.md")));
   });
 });

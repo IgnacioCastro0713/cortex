@@ -1,7 +1,7 @@
 import path from "node:path";
 import { createSymlink, cleanSymlinks } from "../fs-utils.ts";
 import { log } from "../log.ts";
-import { PLATFORM_TARGETS } from "../constants.ts";
+import { getPlatform } from "../constants.ts";
 import { resolveEntries, deduplicateEntries, getSections, readConfigOrExit } from "../resolver.ts";
 
 export interface SyncOptions {
@@ -9,8 +9,11 @@ export interface SyncOptions {
 }
 
 export async function sync(cwd: string, options: SyncOptions = {}): Promise<void> {
-  const prefix = options.dryRun ? "[dry-run] " : "";
-  log.plain(`${prefix}🔗 Syncing knowledge into project...\n`);
+  log.header("sync");
+
+  if (options.dryRun) {
+    log.warn("  dry-run — no changes will be made\n");
+  }
 
   const config = await readConfigOrExit();
 
@@ -19,22 +22,25 @@ export async function sync(cwd: string, options: SyncOptions = {}): Promise<void
     return;
   }
 
-  for (const platform of config.platforms) {
-    const targetBase = PLATFORM_TARGETS[platform];
-    if (!targetBase) {
-      log.warn(`  ⚠ Unknown platform "${platform}" — skipping.`);
+  let total = 0;
+
+  for (const platformName of config.platforms) {
+    const platform = getPlatform(platformName);
+    if (!platform) {
+      log.warn(`  ⚠ Unknown platform "${platformName}" — skipping.`);
       continue;
     }
+    const { name, targetDir } = platform;
 
-    log.plain(`  Platform: ${platform} → ${targetBase}/`);
+    log.plain(`\n  Platform: ${name} (${targetDir}/)`);
 
     for (const section of getSections(config)) {
-      const targetDir = path.join(cwd, targetBase, section.name);
+      const targetDirPath = path.join(cwd, targetDir, section.name);
 
       if (!options.dryRun) {
-        const removed = await cleanSymlinks(targetDir);
+        const removed = await cleanSymlinks(targetDirPath);
         if (removed > 0) {
-          log.dim(`    🗑  Cleaned ${removed} old link(s) in ${targetBase}/${section.name}/`);
+          log.dim(`    🗑  Cleaned ${removed} old link(s) in ${targetDir}/${section.name}/`);
         }
       }
 
@@ -47,24 +53,31 @@ export async function sync(cwd: string, options: SyncOptions = {}): Promise<void
       }
 
       for (const { source, fileName } of entries) {
-        const linkPath = path.join(targetDir, fileName);
+        const linkPath = path.join(targetDirPath, fileName);
         const relLink = path.relative(cwd, linkPath);
 
         if (options.dryRun) {
-          log.info(`    ${prefix}${relLink} → ${source}`);
+          log.info(`    → ${relLink}`);
+          log.dim(`      ${source}`);
           continue;
         }
 
         try {
           await createSymlink(source, linkPath);
-          log.success(`    ✓ ${relLink} → ${source}`);
+          log.success(`    ✓ ${relLink}`);
+          total++;
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          log.error(`    ✗ Failed: ${fileName} — ${msg}`);
+          log.error(`    ✗ ${fileName} — ${msg}`);
         }
       }
     }
   }
 
-  log.plain(`\n${prefix}✅ Sync complete.`);
+  log.separator();
+  if (options.dryRun) {
+    log.dim("  Preview complete.");
+  } else {
+    log.success(`  ✓ Sync complete  (${total} link(s))`);
+  }
 }

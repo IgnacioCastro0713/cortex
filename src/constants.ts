@@ -5,7 +5,16 @@ export const CORTEX_DIR = path.join(os.homedir(), ".cortex");
 export const AI_DIR = path.join(CORTEX_DIR, "ai");
 export const DEPS_DIR = path.join(CORTEX_DIR, "deps");
 
-export const PLATFORM_TARGETS: Record<string, string> = {
-  copilot: ".github",
-  gemini: ".gemini",
-};
+export interface Platform {
+  name: string;
+  targetDir: string;
+}
+
+export const PLATFORMS: Platform[] = [
+  { name: "copilot", targetDir: ".github" },
+  { name: "gemini", targetDir: ".gemini" },
+];
+
+export function getPlatform(name: string): Platform | undefined {
+  return PLATFORMS.find((p) => p.name === name);
+}

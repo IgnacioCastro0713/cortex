@@ -18,6 +18,8 @@ const logMock = {
   error: mock.fn(),
   info: mock.fn(),
   dim: mock.fn(),
+  header: mock.fn(),
+  separator: mock.fn(),
 };
 
 mock.module(srcUrl("resolver.ts"), {
