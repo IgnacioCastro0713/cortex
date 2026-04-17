@@ -21,9 +21,11 @@ const logMock = {
   dim: mock.fn(),
   header: mock.fn(),
   separator: mock.fn(),
+  outro: mock.fn(),
 };
 
-mock.module(srcUrl("resolver.ts"), {
+
+mock.module(srcUrl("core/resolver.ts"), {
   namedExports: {
     readConfigOrExit: readConfigOrExitMock,
     resolveEntries: resolveEntriesMock,
@@ -39,8 +41,9 @@ mock.module("node:fs/promises", {
   defaultExport: { access: accessMock },
 });
 
-mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
-mock.module(srcUrl("constants.ts"), {
+mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
+mock.module(srcUrl("utils/tree.ts"), { namedExports: { renderTree: (section: string, files: string[]) => `${section}/\n${files.join("\n")}` } });
+mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
     PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
     getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
@@ -73,8 +76,8 @@ describe("list", () => {
 
     await list(CWD);
 
-    assert.ok(logMock.plain.mock.calls.some((c) => String(c.arguments[0]).includes("planning.md")));
-    assert.ok(logMock.plain.mock.calls.some((c) => String(c.arguments[0]).includes("1 file(s)")));
+    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("planning.md")));
+    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("1 file(s)")));
   });
 
   it("flags broken source paths", async () => {
@@ -91,7 +94,7 @@ describe("list", () => {
 
     await list(CWD);
 
-    assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("broken.md")));
+    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("broken.md")));
   });
 
   it("shows hint when no files resolved", async () => {
@@ -105,6 +108,6 @@ describe("list", () => {
 
     await list(CWD);
 
-    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("No files resolved")));
+    assert.ok(logMock.outro.mock.calls.some((c) => String(c.arguments[0]).includes("No files resolved")));
   });
 });

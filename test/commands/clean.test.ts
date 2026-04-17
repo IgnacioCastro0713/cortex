@@ -8,7 +8,9 @@ const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..
 const srcUrl = (file: string) => pathToFileURL(path.join(srcDir, file)).href;
 
 const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
-const cleanSymlinksMock = mock.fn<() => Promise<number>>(async () => 0);
+const removeFileMock = mock.fn(async () => {});
+const loadHashDBMock = mock.fn(async () => ({} as Record<string, string>));
+const saveHashDBMock = mock.fn(async () => {});
 const logMock = {
   plain: mock.fn(),
   success: mock.fn(),
@@ -18,9 +20,10 @@ const logMock = {
   dim: mock.fn(),
   header: mock.fn(),
   separator: mock.fn(),
+  outro: mock.fn(),
 };
 
-mock.module(srcUrl("resolver.ts"), {
+mock.module(srcUrl("core/resolver.ts"), {
   namedExports: {
     readConfigOrExit: readConfigOrExitMock,
     getSections: (config: { skills: { paths: string[] }; agents: { paths: string[] } }) => [
@@ -30,12 +33,20 @@ mock.module(srcUrl("resolver.ts"), {
   },
 });
 
-mock.module(srcUrl("fs-utils.ts"), {
-  namedExports: { cleanSymlinks: cleanSymlinksMock },
+mock.module(srcUrl("utils/fs-utils.ts"), {
+  namedExports: { removeFile: removeFileMock, removeEmptyDirs: mock.fn(async () => {}) },
 });
 
-mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
-mock.module(srcUrl("constants.ts"), {
+mock.module(srcUrl("core/hash-db.ts"), {
+  namedExports: {
+    loadHashDB: loadHashDBMock,
+    saveHashDB: saveHashDBMock,
+    normalizeKey: (p: string) => p.replace(/\\/g, "/"),
+  },
+});
+
+mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
+mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
     PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
     getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
@@ -47,39 +58,45 @@ const { clean } = await import("../../src/commands/clean.ts");
 const CWD = path.normalize("/tmp/project");
 
 beforeEach(() => {
-  cleanSymlinksMock.mock.resetCalls();
+  removeFileMock.mock.resetCalls();
+  saveHashDBMock.mock.resetCalls();
+  loadHashDBMock.mock.resetCalls();
   for (const fn of Object.values(logMock)) fn.mock.resetCalls();
 });
 
 describe("clean", () => {
-  it("cleans symlinks for all platform/section combos", async () => {
+  it("removes managed files for all platform/section combos", async () => {
     readConfigOrExitMock.mock.mockImplementation(async () => ({
       platforms: ["copilot"],
       deps: {},
       skills: { paths: [] },
       agents: { paths: [] },
     }));
-    cleanSymlinksMock.mock.mockImplementation(async () => 3);
+    const skillsFile = path.join(CWD, ".github", "skills", "planning.md").replace(/\\/g, "/");
+    const agentsFile = path.join(CWD, ".github", "agents", "code-review.md").replace(/\\/g, "/");
+    loadHashDBMock.mock.mockImplementation(async () => ({
+      [skillsFile]: "abc",
+      [agentsFile]: "def",
+    }));
 
     await clean(CWD);
 
-    // copilot → skills + agents = 2 calls
-    assert.equal(cleanSymlinksMock.mock.callCount(), 2);
-    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("Removed 3")));
+    assert.equal(removeFileMock.mock.callCount(), 2);
+    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("Removed 1")));
   });
 
-  it("reports when no links found", async () => {
+  it("reports when no managed files found", async () => {
     readConfigOrExitMock.mock.mockImplementation(async () => ({
       platforms: ["copilot"],
       deps: {},
       skills: { paths: [] },
       agents: { paths: [] },
     }));
-    cleanSymlinksMock.mock.mockImplementation(async () => 0);
+    loadHashDBMock.mock.mockImplementation(async () => ({}));
 
     await clean(CWD);
 
-    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("No links")));
+    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("No managed files")));
   });
 
   it("cleans across multiple platforms", async () => {
@@ -89,11 +106,13 @@ describe("clean", () => {
       skills: { paths: [] },
       agents: { paths: [] },
     }));
-    cleanSymlinksMock.mock.mockImplementation(async () => 1);
+    const f1 = path.join(CWD, ".github", "skills", "a.md").replace(/\\/g, "/");
+    const f2 = path.join(CWD, ".gemini", "skills", "a.md").replace(/\\/g, "/");
+    loadHashDBMock.mock.mockImplementation(async () => ({ [f1]: "x", [f2]: "y" }));
 
     await clean(CWD);
 
-    // 2 platforms × 2 sections = 4 calls
-    assert.equal(cleanSymlinksMock.mock.callCount(), 4);
+    assert.equal(removeFileMock.mock.callCount(), 2);
+    assert.equal(saveHashDBMock.mock.callCount(), 1);
   });
 });

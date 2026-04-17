@@ -39,3 +39,5 @@ pids/
 # Temp
 tmp/
 .tmp/
+
+reference/

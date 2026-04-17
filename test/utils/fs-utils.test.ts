@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import os from "node:os";
-import { expandPath } from "../src/fs-utils.ts";
+import { expandPath } from "../../src/utils/fs-utils.ts";
 
 const home = os.homedir();
 const depsDir = path.join(home, ".cortex", "deps");

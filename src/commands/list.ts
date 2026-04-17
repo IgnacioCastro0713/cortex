@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
-import path from "node:path";
-import { log } from "../log.ts";
-import { getPlatform } from "../constants.ts";
-import { resolveEntries, getSections, readConfigOrExit } from "../resolver.ts";
+import { styleText } from "node:util";
+import { log } from "../utils/log.ts";
+import { getPlatform } from "../core/constants.ts";
+import { resolveEntries, getSections, readConfigOrExit } from "../core/resolver.ts";
+import { renderTree } from "../utils/tree.ts";
 
 export async function list(cwd: string): Promise<void> {
   log.header("list");
@@ -15,16 +16,17 @@ export async function list(cwd: string): Promise<void> {
     if (!platform) continue;
     const { name, targetDir } = platform;
 
-    log.plain(`\n  Platform: ${name} (${targetDir}/)`);
+    const sectionLines: string[] = [];
 
     for (const section of getSections(config)) {
-      log.dim(`    ${section.name}/`);
-
       const entries = await resolveEntries(section.paths, cwd);
-      for (const { source, fileName } of entries) {
-        const linkPath = path.join(cwd, targetDir, section.name, fileName);
-        const relLink = path.relative(cwd, linkPath);
+      if (entries.length === 0) continue;
 
+      const fileNames: string[] = [];
+      const brokenLines: string[] = [];
+
+      for (const { source, fileName } of entries) {
+        const relDest = fileName.replace(/\\/g, "/");
         let broken = false;
         try {
           await fs.access(source);
@@ -33,21 +35,29 @@ export async function list(cwd: string): Promise<void> {
         }
 
         if (broken) {
-          log.warn(`      ⚠ ${relLink}`);
-          log.warn(`        → ${source} (not found)`);
+          brokenLines.push(`⚠ ${relDest} → ${source} (not found)`);
         } else {
-          log.plain(`      ${relLink}`);
-          log.dim(`        → ${source}`);
+          fileNames.push(relDest);
         }
         total++;
       }
+
+      if (fileNames.length > 0) sectionLines.push(renderTree(section.name, fileNames));
+      for (const b of brokenLines) sectionLines.push(b);
+    }
+
+    if (sectionLines.length > 0) {
+      console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${targetDir}/)`)}`);
+      log.dim(sectionLines.join("\n\n"));
+      console.log();
     }
   }
 
-  log.separator();
   if (total === 0) {
-    log.dim("  No files resolved — run `cortex sync` after configuring cortex.toml.");
+    console.log();
+    log.outro("No files resolved — run `cortex sync` after configuring cortex.toml.");
   } else {
-    log.plain(`  ${total} file(s) linked.`);
+    console.log();
+    log.success(`${total} file(s) listed.`);
   }
 }

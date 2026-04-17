@@ -26,13 +26,14 @@ const logMock = {
   dim: mock.fn(),
   header: mock.fn(),
   separator: mock.fn(),
+  outro: mock.fn(),
 };
 
-mock.module(srcUrl("fs-utils.ts"), {
+mock.module(srcUrl("utils/fs-utils.ts"), {
   namedExports: { ensureDir: ensureDirMock },
 });
 
-mock.module(srcUrl("parser.ts"), {
+mock.module(srcUrl("core/parser.ts"), {
   namedExports: {
     readConfig: readConfigMock,
     writeConfig: writeConfigMock,
@@ -41,11 +42,11 @@ mock.module(srcUrl("parser.ts"), {
   },
 });
 
-mock.module(srcUrl("log.ts"), {
+mock.module(srcUrl("utils/log.ts"), {
   namedExports: { log: logMock },
 });
 
-mock.module(srcUrl("constants.ts"), {
+mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
     CORTEX_DIR: "/home/user/.cortex",
     AI_DIR: "/home/user/.cortex/ai",

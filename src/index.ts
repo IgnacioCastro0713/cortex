@@ -23,6 +23,7 @@ Commands:
 
 Options:
   --dry-run, -d  Preview sync without making changes
+  --force, -f    Overwrite locally modified files
   --version, -v  Show version
   --help, -h     Show this help message
 `.trim();
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
       "dry-run": { type: "boolean", short: "d", default: false },
+      force: { type: "boolean", short: "f", default: false },
     },
   });
 
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
       await update();
       break;
     case "sync":
-      await sync(cwd, { dryRun: values["dry-run"] });
+      await sync(cwd, { dryRun: values["dry-run"], force: values.force });
       break;
     case "list":
       await list(cwd);
@@ -76,6 +78,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("Fatal error:", err instanceof Error ? err.message : err);
+  console.error(`  ✗  Fatal: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

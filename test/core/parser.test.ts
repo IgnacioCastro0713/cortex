@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parse, stringify } from "smol-toml";
-import { defaultConfig } from "../src/parser.ts";
-import type { CortexConfig } from "../src/parser.ts";
+import { defaultConfig } from "../../src/core/parser.ts";
+import type { CortexConfig } from "../../src/core/parser.ts";
 
 describe("defaultConfig", () => {
   it("returns copilot as default platform", () => {

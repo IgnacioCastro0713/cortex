@@ -9,7 +9,7 @@
 
 AI coding assistants like GitHub Copilot and Gemini read project-specific instructions from local directories (`.github/` for Copilot, `.gemini/` for Gemini). If you work across multiple projects, you end up copying the same agent definitions and skill prompts everywhere — keeping them in sync is tedious and error-prone.
 
-Cortex solves this by storing your knowledge in one central place (`~/.cortex/ai/`) and symlinking it into each project. Edit the source once — every project sees the change instantly.
+Cortex solves this by storing your knowledge in one central place (`~/.cortex/ai/`) and copying it into each project on sync. Edit the source once — run `cortex sync` to propagate the changes everywhere.
 
 ## Install
 
@@ -17,7 +17,7 @@ Cortex solves this by storing your knowledge in one central place (`~/.cortex/ai
 npm install -g @ignaciocastro0713/cortex
 ```
 
-> **Requirements:** Node.js >= 22 · Git (for `cortex update`) · Windows users: enable [Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) for symlinks.
+> **Requirements:** Node.js >= 22 · Git (for `cortex update`)
 
 ## Quick start
 
@@ -84,7 +84,7 @@ cd your-project
 cortex sync
 ```
 
-Cortex creates symlinks in `.github/` (Copilot) and `.gemini/` (Gemini) pointing to your files in `~/.cortex/ai/`. Run this in every project you want to equip.
+Cortex copies your files into `.github/` (Copilot) and `.gemini/` (Gemini). Run this in every project you want to equip. Only files managed by Cortex are overwritten — files you created manually are left untouched. If Cortex previously synced a file and you've edited it locally, that file is skipped with a warning; use `--force` to overwrite it.
 
 ## How it works
 
@@ -102,22 +102,22 @@ graph TB
         CMD["cortex sync"]
     end
 
-    Source -->|symlinks| CMD
+    Source -->|copies| CMD
 
     CMD --> PA["project-a/
     .github/
-      agents/ →
-      skills/ →"]
+      agents/
+      skills/"]
 
     CMD --> PB["project-b/
     .github/
-      agents/ →
-      skills/ →"]
+      agents/
+      skills/"]
 
     CMD --> PC["project-c/
     .gemini/
-      agents/ →
-      skills/ →"]
+      agents/
+      skills/"]
 
     style Source fill:#2d5a27,color:#fff,stroke:#4a9e42
     style CMD fill:#1a3a5c,color:#fff,stroke:#2e6da4
@@ -128,9 +128,9 @@ graph TB
 | Command | Description |
 |---------|-------------|
 | `cortex init` | Create `~/.cortex/cortex.toml` and the `~/.cortex/ai/` folder structure |
-| `cortex sync` | Create symlinks from your knowledge sources into the current project |
+| `cortex sync` | Copy knowledge files into the current project (hash-tracked, skips locally modified files) |
 | `cortex list` | Show the map of linked files (flags broken sources with ⚠) |
-| `cortex clean` | Remove all cortex-managed symlinks from the current project |
+| `cortex clean` | Remove all cortex-managed files from the current project |
 | `cortex update` | Pull latest changes for `~/.cortex/ai/` and all deps |
 
 ### Options
@@ -138,6 +138,7 @@ graph TB
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--dry-run` | `-d` | Preview `sync` without making any changes |
+| `--force` | `-f` | Overwrite locally modified files during `sync` |
 | `--version` | `-v` | Print the current version and exit |
 | `--help` | `-h` | Show the help message |
 
@@ -153,7 +154,7 @@ graph TB
 
 ### Platforms
 
-| Platform | Symlinks created in |
+| Platform | Files copied to |
 |----------|---------------------|
 | `copilot` | `.github/` |
 | `gemini` | `.gemini/` |
@@ -166,7 +167,7 @@ src/
   constants.ts    Shared paths and platform definitions
   resolver.ts     Config resolution and entry deduplication
   parser.ts       TOML config reader/writer
-  fs-utils.ts     Filesystem operations (symlinks, glob, path expansion)
+  fs-utils.ts     Filesystem operations (copy, glob, path expansion)
   git-utils.ts    Git wrapper (clone, pull)
   log.ts          Colored terminal output via util.styleText()
   commands/

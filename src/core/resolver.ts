@@ -1,7 +1,7 @@
 import path from "node:path";
-import { expandPath, resolveGlob } from "./fs-utils.ts";
+import { expandPath, resolveGlob } from "../utils/fs-utils.ts";
 import { readConfig } from "./parser.ts";
-import { log } from "./log.ts";
+import { log } from "../utils/log.ts";
 import { DEPS_DIR } from "./constants.ts";
 
 export interface ResolvedEntry {

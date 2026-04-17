@@ -11,8 +11,14 @@ type Entry = { source: string; fileName: string };
 
 const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
 const resolveEntriesMock = mock.fn<(patterns: string[], cwd: string) => Promise<Entry[]>>();
-const cleanSymlinksMock = mock.fn<(dir: string) => Promise<number>>(async () => 0);
-const createSymlinkMock = mock.fn<(target: string, linkPath: string) => Promise<void>>(async () => {});
+const copyFileAtomicMock = mock.fn<(src: string, dest: string) => Promise<Buffer>>(async () => Buffer.from("content"));
+const removeFileMock = mock.fn(async () => {});
+const listMdFilesMock = mock.fn(async () => [] as string[]);
+const loadHashDBMock = mock.fn(async () => ({} as Record<string, string>));
+const saveHashDBMock = mock.fn(async () => {});
+const isDirtyMock = mock.fn(async () => false);
+
+const fileExistsMock = mock.fn(async () => false);
 const logMock = {
   plain: mock.fn(),
   success: mock.fn(),
@@ -22,9 +28,10 @@ const logMock = {
   dim: mock.fn(),
   header: mock.fn(),
   separator: mock.fn(),
+  outro: mock.fn(),
 };
 
-mock.module(srcUrl("resolver.ts"), {
+mock.module(srcUrl("core/resolver.ts"), {
   namedExports: {
     readConfigOrExit: readConfigOrExitMock,
     resolveEntries: resolveEntriesMock,
@@ -36,15 +43,23 @@ mock.module(srcUrl("resolver.ts"), {
   },
 });
 
-mock.module(srcUrl("fs-utils.ts"), {
+mock.module(srcUrl("utils/fs-utils.ts"), {
+  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock },
+});
+
+mock.module(srcUrl("core/hash-db.ts"), {
   namedExports: {
-    createSymlink: createSymlinkMock,
-    cleanSymlinks: cleanSymlinksMock,
+    loadHashDB: loadHashDBMock,
+    saveHashDB: saveHashDBMock,
+    isDirty: isDirtyMock,
+    normalizeKey: (p: string) => p.replace(/\\/g, "/"),
+    md5: () => "abc123",
   },
 });
 
-mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
-mock.module(srcUrl("constants.ts"), {
+mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
+mock.module(srcUrl("utils/tree.ts"), { namedExports: { renderTree: (section: string, files: string[]) => `${section}/\n${files.join("\n")}` } });
+mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
     PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
     getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
@@ -56,9 +71,13 @@ const { sync } = await import("../../src/commands/sync.ts");
 const CWD = path.normalize("/tmp/project");
 
 beforeEach(() => {
-  for (const fn of [readConfigOrExitMock, resolveEntriesMock, cleanSymlinksMock, createSymlinkMock]) {
+  for (const fn of [readConfigOrExitMock, resolveEntriesMock, copyFileAtomicMock, removeFileMock, saveHashDBMock, listMdFilesMock, isDirtyMock, fileExistsMock]) {
     fn.mock.resetCalls();
   }
+  isDirtyMock.mock.mockImplementation(async () => false);
+  fileExistsMock.mock.mockImplementation(async () => false);
+  loadHashDBMock.mock.resetCalls();
+  loadHashDBMock.mock.mockImplementation(async () => ({}));
   for (const fn of Object.values(logMock)) fn.mock.resetCalls();
 });
 
@@ -74,7 +93,7 @@ describe("sync", () => {
     await sync(CWD);
 
     assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("No platforms")));
-    assert.equal(createSymlinkMock.mock.callCount(), 0);
+    assert.equal(copyFileAtomicMock.mock.callCount(), 0);
   });
 
   it("skips unknown platforms", async () => {
@@ -90,14 +109,13 @@ describe("sync", () => {
     assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("Unknown platform")));
   });
 
-  it("cleans old symlinks then creates new ones", async () => {
+  it("copies files and saves hash DB", async () => {
     readConfigOrExitMock.mock.mockImplementation(async () => ({
       platforms: ["copilot"],
       deps: {},
       skills: { paths: ["~/.cortex/ai/skills/*"] },
       agents: { paths: [] },
     }));
-    cleanSymlinksMock.mock.mockImplementation(async () => 2);
     resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
       if (patterns.length === 0) return [];
       return [{ source: "/home/user/.cortex/ai/skills/planning.md", fileName: "planning.md" }];
@@ -105,13 +123,13 @@ describe("sync", () => {
 
     await sync(CWD);
 
-    assert.ok(cleanSymlinksMock.mock.callCount() >= 1);
-    assert.equal(createSymlinkMock.mock.callCount(), 1);
-    const args = createSymlinkMock.mock.calls[0]!.arguments;
+    assert.equal(copyFileAtomicMock.mock.callCount(), 1);
+    const args = copyFileAtomicMock.mock.calls[0]!.arguments;
     assert.equal(args[0], "/home/user/.cortex/ai/skills/planning.md");
+    assert.equal(saveHashDBMock.mock.callCount(), 1);
   });
 
-  it("does not create symlinks or clean in dry-run mode", async () => {
+  it("does not copy files in dry-run mode", async () => {
     readConfigOrExitMock.mock.mockImplementation(async () => ({
       platforms: ["copilot"],
       deps: {},
@@ -124,12 +142,12 @@ describe("sync", () => {
 
     await sync(CWD, { dryRun: true });
 
-    assert.equal(createSymlinkMock.mock.callCount(), 0);
-    assert.equal(cleanSymlinksMock.mock.callCount(), 0);
+    assert.equal(copyFileAtomicMock.mock.callCount(), 0);
+    assert.equal(saveHashDBMock.mock.callCount(), 0);
     assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("dry-run")));
   });
 
-  it("reports failed symlinks", async () => {
+  it("reports failed copies", async () => {
     readConfigOrExitMock.mock.mockImplementation(async () => ({
       platforms: ["copilot"],
       deps: {},
@@ -139,10 +157,100 @@ describe("sync", () => {
     resolveEntriesMock.mock.mockImplementation(async (_patterns, _cwd) => [
       { source: "/some/source.md", fileName: "source.md" },
     ]);
-    createSymlinkMock.mock.mockImplementation(async (_target, _link) => { throw new Error("EPERM"); });
+    copyFileAtomicMock.mock.mockImplementation(async (_src, _dest) => { throw new Error("EPERM"); });
 
     await sync(CWD);
 
-    assert.ok(logMock.error.mock.calls.some((c) => String(c.arguments[0]).includes("source.md")));
+    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("failed")));
+  });
+
+  it("skips dirty files without --force", async () => {
+    readConfigOrExitMock.mock.mockImplementation(async () => ({
+      platforms: ["copilot"],
+      deps: {},
+      skills: { paths: ["path/*"] },
+      agents: { paths: [] },
+    }));
+    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+      if (patterns.length === 0) return [];
+      return [{ source: "/some/source.md", fileName: "source.md" }];
+    });
+    isDirtyMock.mock.mockImplementation(async () => true);
+
+    await sync(CWD);
+
+    assert.equal(copyFileAtomicMock.mock.callCount(), 0);
+  });
+
+  it("overwrites dirty files with --force", async () => {
+    readConfigOrExitMock.mock.mockImplementation(async () => ({
+      platforms: ["copilot"],
+      deps: {},
+      skills: { paths: ["path/*"] },
+      agents: { paths: [] },
+    }));
+    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+      if (patterns.length === 0) return [];
+      return [{ source: "/some/source.md", fileName: "source.md" }];
+    });
+    isDirtyMock.mock.mockImplementation(async () => true);
+
+    await sync(CWD, { force: true });
+
+    assert.equal(copyFileAtomicMock.mock.callCount(), 1);
+  });
+
+  it("copies clean files normally", async () => {
+    readConfigOrExitMock.mock.mockImplementation(async () => ({
+      platforms: ["copilot"],
+      deps: {},
+      skills: { paths: ["path/*"] },
+      agents: { paths: [] },
+    }));
+    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+      if (patterns.length === 0) return [];
+      return [{ source: "/some/source.md", fileName: "source.md" }];
+    });
+    isDirtyMock.mock.mockImplementation(async () => false);
+
+    await sync(CWD);
+
+    assert.equal(copyFileAtomicMock.mock.callCount(), 1);
+  });
+
+  it("skips unmanaged files without --force", async () => {
+    readConfigOrExitMock.mock.mockImplementation(async () => ({
+      platforms: ["copilot"],
+      deps: {},
+      skills: { paths: ["path/*"] },
+      agents: { paths: [] },
+    }));
+    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+      if (patterns.length === 0) return [];
+      return [{ source: "/some/source.md", fileName: "source.md" }];
+    });
+    fileExistsMock.mock.mockImplementation(async () => true); // dest exists but not in hashDB
+
+    await sync(CWD);
+
+    assert.equal(copyFileAtomicMock.mock.callCount(), 0);
+  });
+
+  it("overwrites unmanaged files with --force", async () => {
+    readConfigOrExitMock.mock.mockImplementation(async () => ({
+      platforms: ["copilot"],
+      deps: {},
+      skills: { paths: ["path/*"] },
+      agents: { paths: [] },
+    }));
+    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+      if (patterns.length === 0) return [];
+      return [{ source: "/some/source.md", fileName: "source.md" }];
+    });
+    fileExistsMock.mock.mockImplementation(async () => true);
+
+    await sync(CWD, { force: true });
+
+    assert.equal(copyFileAtomicMock.mock.callCount(), 1);
   });
 });

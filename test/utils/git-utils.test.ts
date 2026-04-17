@@ -15,7 +15,7 @@ mock.module("node:child_process", {
   namedExports: { execFile: execFileMock },
 });
 
-const { gitPull, gitCloneOrPull } = await import("../src/git-utils.ts");
+const { gitPull, gitCloneOrPull } = await import("../../src/utils/git-utils.ts");
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "cortex-git-test-"));

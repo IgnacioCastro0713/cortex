@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { ResolvedEntry } from "../src/resolver.ts";
-import { deduplicateEntries, getSections } from "../src/resolver.ts";
+import type { ResolvedEntry } from "../../src/core/resolver.ts";
+import { deduplicateEntries, getSections } from "../../src/core/resolver.ts";
 
 describe("deduplicateEntries", () => {
   it("returns entries as-is when no duplicates", () => {

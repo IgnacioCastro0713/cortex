@@ -11,6 +11,7 @@ const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
 const isGitRepoMock = mock.fn<(dir: string) => Promise<boolean>>(async () => false);
 const gitPullMock = mock.fn<(dir: string) => Promise<string>>(async () => "");
 const gitCloneOrPullMock = mock.fn<(url: string, dir: string) => Promise<string>>(async () => "");
+const spinnerMock = { start: mock.fn(), stop: mock.fn() };
 const logMock = {
   plain: mock.fn(),
   success: mock.fn(),
@@ -20,22 +21,23 @@ const logMock = {
   dim: mock.fn(),
   header: mock.fn(),
   separator: mock.fn(),
+  outro: mock.fn(),
 };
 
-mock.module(srcUrl("resolver.ts"), {
+mock.module(srcUrl("core/resolver.ts"), {
   namedExports: { readConfigOrExit: readConfigOrExitMock },
 });
 
-mock.module(srcUrl("fs-utils.ts"), {
+mock.module(srcUrl("utils/fs-utils.ts"), {
   namedExports: { isGitRepo: isGitRepoMock },
 });
 
-mock.module(srcUrl("git-utils.ts"), {
+mock.module(srcUrl("utils/git-utils.ts"), {
   namedExports: { gitPull: gitPullMock, gitCloneOrPull: gitCloneOrPullMock },
 });
 
-mock.module(srcUrl("log.ts"), { namedExports: { log: logMock } });
-mock.module(srcUrl("constants.ts"), {
+mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
+mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
     AI_DIR: "/home/user/.cortex/ai",
     DEPS_DIR: "/home/user/.cortex/deps",
@@ -49,6 +51,8 @@ beforeEach(() => {
     fn.mock.resetCalls();
   }
   for (const fn of Object.values(logMock)) fn.mock.resetCalls();
+  spinnerMock.start.mock.resetCalls();
+  spinnerMock.stop.mock.resetCalls();
 });
 
 describe("update", () => {

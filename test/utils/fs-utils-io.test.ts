@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { resolveGlob, createSymlink, cleanSymlinks, isGitRepo } from "../src/fs-utils.ts";
+import { resolveGlob, createSymlink, cleanSymlinks, isGitRepo } from "../../src/utils/fs-utils.ts";
 
 let tmpDir: string;
 
