@@ -7,27 +7,84 @@
 
 > **Write your AI knowledge once. Distribute it everywhere.**
 
-A CLI that centralizes your AI coding assistant knowledge (custom agents and skills) in one place and distributes it across all your projects via symlinks.
+AI coding assistants like GitHub Copilot and Gemini read project-specific instructions from local directories (`.github/` for Copilot, `.gemini/` for Gemini). If you work across multiple projects, you end up copying the same agent definitions and skill prompts everywhere — keeping them in sync is tedious and error-prone.
+
+Cortex solves this by storing your knowledge in one central place (`~/.cortex/ai/`) and symlinking it into each project. Edit the source once — every project sees the change instantly.
 
 ## Install
 
 ```sh
-npm install -g @ignacioCastro0713/cortex
+npm install -g @ignaciocastro0713/cortex
 ```
+
+> **Requirements:** Node.js >= 22 · Git (for `cortex update`) · Windows users: enable [Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) for symlinks.
 
 ## Quick start
 
-```sh
-# 1. Install globally (one time)
-cortex init
-code $HOME/.cortex/cortex.toml   # edit platforms, paths, and deps
-```
+### 1. Initialize (run once)
 
 ```sh
-# 2. Sync into any project (per project)
+cortex init
+```
+
+Creates the following structure in your home directory:
+
+```
+~/.cortex/
+  cortex.toml       ← configuration file
+  ai/
+    agents/         ← AI agent definitions (.md files)
+    skills/         ← skill and instruction prompts (.md files)
+  deps/             ← third-party knowledge cloned from Git
+```
+
+### 2. Add your knowledge files
+
+Create `.md` files in `~/.cortex/ai/agents/` and `~/.cortex/ai/skills/`. These are plain Markdown files that your AI assistant will read as instructions.
+
+**Example — `~/.cortex/ai/agents/code-review.md`:**
+```markdown
+# Code Review Agent
+Review code for correctness, edge cases, and style issues.
+Always suggest tests for uncovered paths.
+```
+
+**Example — `~/.cortex/ai/skills/testing.md`:**
+```markdown
+# Testing Skill
+Write unit tests using the AAA pattern (Arrange, Act, Assert).
+Prefer pure functions and avoid mocking unless necessary.
+```
+
+### 3. Configuration
+
+`~/.cortex/cortex.toml` controls everything:
+
+```toml
+platforms = ["copilot", "gemini"]
+
+[deps]
+# Clone a third-party knowledge repo as a dependency
+design-doc-mermaid = "https://github.com/SpillwaveSolutions/design-doc-mermaid"
+
+[skills]
+paths = [
+  "~/.cortex/ai/skills/*",   # your own skills
+  "@design-doc-mermaid",     # all files from the dep above
+]
+
+[agents]
+paths = ["~/.cortex/ai/agents/*"]
+```
+
+### 4. Sync into a project
+
+```sh
 cd your-project
 cortex sync
 ```
+
+Cortex creates symlinks in `.github/` (Copilot) and `.gemini/` (Gemini) pointing to your files in `~/.cortex/ai/`. Run this in every project you want to equip.
 
 ## How it works
 
@@ -66,112 +123,72 @@ graph TB
     style CMD fill:#1a3a5c,color:#fff,stroke:#2e6da4
 ```
 
-Edit the source once → every project sees the change instantly.
-
-Cortex maintains a master knowledge repository at `~/.cortex/ai/`. When you run `cortex sync` inside any project, it creates symlinks into the platform-specific directories that AI coding assistants read (`.github/` for Copilot, `.gemini/` for Gemini).
-
-## Features
-
-- **Write once** — Define your agents and skills as `.md` files in `~/.cortex/ai/`.
-- **Share easily** — Pull third-party skills from Git repositories as dependencies.
-- **Sync everywhere** — Run `cortex sync` in any project to create symlinks that point back to your master files.
-- **Stay in sync** — Edit the source and every project sees the change instantly. No copying, no drift.
-
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `cortex init` | Generate `~/.cortex/cortex.toml` and ensure `~/.cortex/ai/` structure exists |
-| `cortex update` | Pull latest changes for `~/.cortex/ai/` and all deps |
-| `cortex sync` | Create symlinks from knowledge sources into the current project |
+| `cortex init` | Create `~/.cortex/cortex.toml` and the `~/.cortex/ai/` folder structure |
+| `cortex sync` | Create symlinks from your knowledge sources into the current project |
 | `cortex list` | Show the map of linked files (flags broken sources with ⚠) |
 | `cortex clean` | Remove all cortex-managed symlinks from the current project |
+| `cortex update` | Pull latest changes for `~/.cortex/ai/` and all deps |
 
 ### Options
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--dry-run` | `-d` | Preview `sync` without creating or removing any symlinks |
+| `--dry-run` | `-d` | Preview `sync` without making any changes |
 | `--version` | `-v` | Print the current version and exit |
 | `--help` | `-h` | Show the help message |
 
-## Configuration
-
-The file `~/.cortex/cortex.toml` controls everything:
-
-```toml
-platforms = [ "copilot", "gemini"]
-
-[deps]
-design-doc-mermaid = "https://github.com/SpillwaveSolutions/design-doc-mermaid"
-
-[skills]
-paths = [ "~/.cortex/ai/skills/*" , "@design-doc-mermaid"]
-
-[agents]
-paths = [ "~/.cortex/ai/agents/*" ]
-```
+## Configuration reference
 
 ### Path prefixes
 
 | Prefix | Resolves to |
 |--------|-------------|
 | `~` | User home directory |
-| `@alias` | `~/.cortex/deps/{alias}` |
+| `@alias` | `~/.cortex/deps/{alias}` (a cloned dependency) |
 | `./` | Current working directory |
 
 ### Platforms
 
-| Platform | Target directory |
-|----------|-----------------|
+| Platform | Symlinks created in |
+|----------|---------------------|
 | `copilot` | `.github/` |
 | `gemini` | `.gemini/` |
-
-## Why
-
-AI coding assistants like GitHub Copilot and Google Gemini read project-specific instructions from local directories (`.github/` and `.gemini/`). When you have multiple projects, you end up duplicating the same agent definitions and skill prompts across each one. Keeping them in sync is manual, error-prone, and doesn't scale.
-
-## Requirements
-
-- Node.js >= 22
-- Git (for `cortex update`)
-- Windows: [Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) enabled (Settings → System → For developers → On)
 
 ## Project structure
 
 ```
 src/
   index.ts        Entry point and argument parsing
-  constants.ts    Shared paths and platform mappings
+  constants.ts    Shared paths and platform definitions
   resolver.ts     Config resolution and entry deduplication
   parser.ts       TOML config reader/writer
   fs-utils.ts     Filesystem operations (symlinks, glob, path expansion)
   git-utils.ts    Git wrapper (clone, pull)
   log.ts          Colored terminal output via util.styleText()
   commands/
-    init.ts       cortex init
-    update.ts     cortex update
-    sync.ts       cortex sync
-    list.ts       cortex list
-    clean.ts      cortex clean
+    init.ts
+    update.ts
+    sync.ts
+    list.ts
+    clean.ts
 test/
-  fs-utils.test.ts
-  fs-utils-io.test.ts
-  resolver.test.ts
-  parser.test.ts
-  git-utils.test.ts
   commands/
     init.test.ts
     sync.test.ts
     list.test.ts
     clean.test.ts
     update.test.ts
+  fs-utils.test.ts
+  fs-utils-io.test.ts
+  resolver.test.ts
+  parser.test.ts
+  git-utils.test.ts
 ```
 
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
-
----
-
-Built with Node.js native TypeScript execution — zero build step, zero bundler.
