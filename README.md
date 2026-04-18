@@ -76,7 +76,6 @@ paths = [
 [agents]
 paths = ["~/.cortex/ai/agents/*"]
 
-[mcp]
 # MCP servers synced globally to ~/.copilot/mcp-config.json and ~/.gemini/settings.json
 [mcp.playwright]
 command = "npx"
