@@ -1,7 +1,7 @@
 {
   "name": "@ignaciocastro0713/cortex",
-  "version": "0.0.3",
-  "description": "Knowledge distribution engine — injects Skills and Agents into local projects via symlinks.",
+  "version": "0.1.0",
+  "description": "Knowledge distribution engine — syncs AI skills, agents, and MCP configs across projects.",
   "type": "module",
   "bin": {
     "cortex": "./dist/index.js"
@@ -21,7 +21,7 @@
     "ai",
     "agents",
     "skills",
-    "symlinks",
+    "mcp",
     "copilot",
     "gemini",
     "knowledge-management",
