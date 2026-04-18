@@ -13,6 +13,7 @@ const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
 const resolveEntriesMock = mock.fn<(patterns: string[], cwd: string) => Promise<Entry[]>>();
 const copyFileAtomicMock = mock.fn<(src: string, dest: string) => Promise<Buffer>>(async () => Buffer.from("content"));
 const removeFileMock = mock.fn(async () => {});
+const removeEmptyDirsMock = mock.fn(async () => {});
 const listMdFilesMock = mock.fn(async () => [] as string[]);
 const loadHashDBMock = mock.fn(async () => ({} as Record<string, string>));
 const saveHashDBMock = mock.fn(async () => {});
@@ -44,7 +45,7 @@ mock.module(srcUrl("core/resolver.ts"), {
 });
 
 mock.module(srcUrl("utils/fs-utils.ts"), {
-  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock },
+  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock },
 });
 
 mock.module(srcUrl("core/hash-db.ts"), {
@@ -71,7 +72,7 @@ const { sync } = await import("../../src/commands/sync.ts");
 const CWD = path.normalize("/tmp/project");
 
 beforeEach(() => {
-  for (const fn of [readConfigOrExitMock, resolveEntriesMock, copyFileAtomicMock, removeFileMock, saveHashDBMock, listMdFilesMock, isDirtyMock, fileExistsMock]) {
+  for (const fn of [readConfigOrExitMock, resolveEntriesMock, copyFileAtomicMock, removeFileMock, removeEmptyDirsMock, saveHashDBMock, listMdFilesMock, isDirtyMock, fileExistsMock]) {
     fn.mock.resetCalls();
   }
   isDirtyMock.mock.mockImplementation(async () => false);

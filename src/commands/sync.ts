@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { styleText } from "node:util";
-import { copyFileAtomic, removeFile, listMdFiles, fileExists } from "../utils/fs-utils.ts";
+import { copyFileAtomic, removeFile, removeEmptyDirs, listMdFiles, fileExists } from "../utils/fs-utils.ts";
 import { loadHashDB, saveHashDB, md5, isDirty, normalizeKey, type HashDB } from "../core/hash-db.ts";
 import { log } from "../utils/log.ts";
 import { getPlatform } from "../core/constants.ts";
