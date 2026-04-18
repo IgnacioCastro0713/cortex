@@ -7,7 +7,7 @@
 
 > **Write your AI knowledge once. Distribute it everywhere.**
 
-AI coding assistants like GitHub Copilot and Gemini read instructions from platform-specific directories (`~/.copilot/` for Copilot, `~/.gemini/` for Gemini). If you use multiple assistants, you end up duplicating the same agent definitions and skill prompts in each — keeping them in sync is tedious and error-prone.
+AI coding assistants like GitHub Copilot, Gemini, and Claude read instructions from platform-specific directories (`~/.copilot/`, `~/.gemini/`, `~/.claude/`). If you use multiple assistants, you end up duplicating the same agent definitions and skill prompts in each — keeping them in sync is tedious and error-prone.
 
 Cortex solves this by storing your knowledge in one central place (`~/.cortex/ai/`) and copying it to each platform's global directory. Edit the source once — run `cortex sync` to propagate the changes everywhere.
 
@@ -61,7 +61,7 @@ Prefer pure functions and avoid mocking unless necessary.
 `~/.cortex/cortex.toml` controls everything:
 
 ```toml
-platforms = ["copilot", "gemini"]
+platforms = ["copilot", "gemini", "claude"]
 
 [deps]
 # Clone a third-party knowledge repo as a dependency
@@ -93,7 +93,7 @@ args = ["-y", "@upstash/context7-mcp"]
 cortex sync
 ```
 
-Cortex copies your files to `~/.copilot/` (Copilot) and `~/.gemini/` (Gemini). Run this once after editing your knowledge sources — the files are available globally in every project. Only files managed by Cortex are overwritten — files you created manually are left untouched. If Cortex previously synced a file and you've edited it locally, that file is skipped with a `⚠` warning in the tree; use `--force` to overwrite it.
+Cortex copies your files to `~/.copilot/` (Copilot), `~/.gemini/` (Gemini), and `~/.claude/` (Claude). Run this once after editing your knowledge sources — the files are available globally in every project. Only files managed by Cortex are overwritten — files you created manually are left untouched. If Cortex previously synced a file and you've edited it locally, that file is skipped with a `⚠` warning in the tree; use `--force` to overwrite it.
 
 Files removed from your config are automatically detected and deleted on the next sync. Empty directories are cleaned up automatically; directories containing files not managed by Cortex are preserved.
 
@@ -122,6 +122,10 @@ graph TB
       skills/"]
 
     CMD --> PB["💻 ~/.gemini/
+      agents/
+      skills/"]
+
+    CMD --> PC["💻 ~/.claude/
       agents/
       skills/"]
 
@@ -163,6 +167,7 @@ graph TB
 |----------|---------------------|---------------------|
 | `copilot` | `~/.copilot/` | `~/.copilot/mcp-config.json` |
 | `gemini` | `~/.gemini/` | `~/.gemini/settings.json` |
+| `claude` | `~/.claude/` | `~/.claude.json` |
 
 ## Project structure
 

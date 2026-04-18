@@ -151,67 +151,19 @@ For the full MCP design — data model, merge flow diagrams, filter flags, and e
 
 ## Design Decisions
 
-### Why global sync instead of per-project?
+Architecture decisions are documented as ADRs in [`docs/decisions/`](decisions/).
 
-Earlier versions of Cortex copied files into the project directory (`.github/`, `.gemini/`). This was changed to global sync (`~/.copilot/`, `~/.gemini/`) for several reasons:
-
-1. **Single source of truth.** Skills and agents are user-level knowledge, not project-level configuration. Copying them into every project creates N copies that all need to stay in sync.
-
-2. **No project setup required.** With global sync, knowledge is available in every project without running `cortex sync` per repo. Open any folder in your editor and the assistant already has your instructions.
-
-3. **Consistent with MCP.** MCP configs were already global. Having skills/agents also be global means `cortex sync` has a single mental model: everything goes to `$HOME`.
-
-4. **Simpler implementation.** No need to resolve the current working directory for target paths. The `cwd` parameter was removed from the sync pipeline entirely.
-
-### Why copies instead of symlinks?
-
-Symlinks were used in earlier versions but replaced with file copies for several reasons:
-
-1. **Windows compatibility.** Creating symlinks on Windows requires either Administrator privileges or Developer Mode enabled. This is a non-starter for most users — copies work everywhere without special permissions.
-
-2. **Git-friendly.** Symlinks committed to git are fragile across clones and platforms. A symlink pointing to `~/.cortex/ai/skills/planning/` breaks on any machine with a different home directory. Copies are self-contained.
-
-3. **Dirty detection.** With copies, Cortex can hash the destination file and detect if the user has manually edited it. This enables the skip-with-warning behavior. With symlinks, there is no "destination file" to hash — the symlink just points to the source. Any edit to the symlinked file modifies the source directly, which is dangerous when the same source feeds multiple projects.
-
-4. **Stale removal is safe.** Deleting a copied file is a no-op if the user has moved on. Deleting a symlink that might still be referenced elsewhere is riskier.
-
-The tradeoff is disk usage and sync time, both negligible for markdown files.
-
-### Why no MCP transformations per platform?
-
-Both Copilot CLI and Gemini CLI currently use the same `mcpServers` structure:
-
-```json
-{
-  "mcpServers": {
-    "name": {
-      "command": "...",
-      "args": ["..."],
-      "env": {}
-    }
-  }
-}
-```
-
-Introducing a transformation layer would add complexity without a concrete use case today. If a future platform requires a different MCP structure, the `mcpKey` field in the platform definition already allows per-platform key names, and a `mcpTransform` function can be added at that point without breaking the existing schema.
-
-Principle: **don't build abstractions for problems that don't exist yet.**
-
-### Why separate `cortex sync` from `cortex update`?
-
-Sync should be fast and predictable — it reads local files and writes local files. Pulling git repos is slow and network-dependent. Users update deps explicitly when they want to (`cortex update`), and sync uses whatever is already on disk. This keeps `cortex sync` safe to run in CI or pre-commit hooks without network access.
-
-### Why `smol-toml` as the only dependency?
-
-Cortex is a developer tool that users install globally. Minimal dependencies mean fewer supply chain risks, faster installs, and fewer version conflicts. `smol-toml` is small, well-tested, and handles the TOML parsing/stringifying that Node.js doesn't provide natively. Everything else — hashing, filesystem, git, CLI parsing, terminal colors — uses Node.js built-in APIs.
-
-### Why MD5 for hashing?
-
-MD5 is not used for security — it's used for change detection. It's fast, produces compact hex strings, and is built into Node.js (`node:crypto`). SHA-256 would work identically but be slower for no benefit in this context.
-
-### Why atomic writes?
-
-Every file write (copies, hash DB, MCP configs) goes through a tmp-file-then-rename pattern. This prevents partial writes from corrupting files if the process is interrupted. The rename operation is atomic on all major filesystems.
+| ADR | Decision |
+|-----|----------|
+| [001](decisions/001-global-sync.md) | Global sync instead of per-project |
+| [002](decisions/002-copies-vs-symlinks.md) | File copies instead of symlinks |
+| [003](decisions/003-mcp-merge-strategy.md) | MCP merge strategy instead of replace |
+| [004](decisions/004-mcpkey-per-platform.md) | `mcpKey` per platform |
+| [005](decisions/005-separate-sync-update.md) | Separate `cortex sync` from `cortex update` |
+| [006](decisions/006-smol-toml-only.md) | `smol-toml` as the only dependency |
+| [007](decisions/007-md5-for-hashing.md) | MD5 for dirty detection |
+| [008](decisions/008-atomic-writes.md) | Atomic writes everywhere |
+| [009](decisions/009-no-mcp-transformations.md) | No MCP transformations per platform |
 
 ---
 
@@ -264,3 +216,28 @@ src/
 
 - Should `cortex update` support pinning deps to a specific commit/tag?
 - Should there be a `cortex mcp` subcommand for managing MCP entries without editing TOML?
+
+## Future Considerations
+
+### Project-level sync
+
+Currently Cortex operates at the **user level** — global config in `~/.cortex/`, synced into each platform's global directory. A natural extension is **project-level sync**: reading a `cortex.toml` at the repo root and syncing into project-scoped platform directories instead of (or in addition to) the global ones.
+
+Each platform has a project-level directory where skills and agents can be placed:
+
+| Platform | Global (current) | Project-level (not yet supported) |
+|----------|-----------------|-----------------------------------|
+| Copilot | `~/.copilot/` | `.github/prompts/` |
+| Gemini | `~/.gemini/` | `.gemini/` in project root |
+| Claude | `~/.claude/commands/` | `.claude/commands/` in project root |
+
+Cortex does not currently read a `cortex.toml` from the repo root or sync into project directories. All sync targets are global.
+
+**Why this would be useful:** project-level skills and agents carry repo-specific context — architecture conventions, testing patterns, domain language — that doesn't belong in the global config shared across all machines and projects.
+
+**Two composition models under consideration:**
+
+1. **Standalone project mode** — `cortex sync` detects a local `cortex.toml` and resolves all paths relative to the project. Global and project syncs are independent runs.
+2. **Global + project composition** — the global `~/.cortex/cortex.toml` defines shared knowledge; the local `cortex.toml` extends or overrides it per repo. Personal coding style stays global, repo conventions stay local.
+
+The composition model is more powerful but requires clear merge semantics — particularly whether project entries append to or replace global entries of the same name.

@@ -40,7 +40,7 @@ export async function syncMCP(
   const results: McpSyncResult[] = [];
 
   for (const platform of platforms) {
-    const configPath = path.join(platform.targetDir, platform.mcpConfigFile);
+    const configPath = platform.mcpConfigPath;
 
     if (dryRun) {
       results.push({ platform: platform.name, configPath, ok: true });

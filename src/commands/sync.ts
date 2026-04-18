@@ -185,7 +185,7 @@ async function renderMcpResults(mcp: Record<string, McpServer>, platforms: Platf
     console.log(`${styleText("cyan", "●")}  mcp  ${styleText("dim", "(dry-run)")}`);
     console.log();
     for (const platform of platforms) {
-      log.dim(`  ${displayPath(path.join(platform.targetDir, platform.mcpConfigFile))}  — ${serverNames.join(", ")}`);
+      log.dim(`  ${displayPath(platform.mcpConfigPath)}  — ${serverNames.join(", ")}`);
     }
     console.log();
     return;

@@ -8,13 +8,14 @@ export const DEPS_DIR = path.join(CORTEX_DIR, "deps");
 export interface Platform {
   name: string;
   targetDir: string;
-  mcpConfigFile: string;
+  mcpConfigPath: string;
   mcpKey: string;
 }
 
 export const PLATFORMS: Platform[] = [
-  { name: "copilot", targetDir: path.join(os.homedir(), ".copilot"), mcpConfigFile: "mcp-config.json", mcpKey: "mcpServers" },
-  { name: "gemini", targetDir: path.join(os.homedir(), ".gemini"), mcpConfigFile: "settings.json", mcpKey: "mcpServers" },
+  { name: "copilot", targetDir: path.join(os.homedir(), ".copilot"), mcpConfigPath: path.join(os.homedir(), ".copilot", "mcp-config.json"), mcpKey: "mcpServers" },
+  { name: "gemini", targetDir: path.join(os.homedir(), ".gemini"), mcpConfigPath: path.join(os.homedir(), ".gemini", "settings.json"), mcpKey: "mcpServers" },
+  { name: "claude", targetDir: path.join(os.homedir(), ".claude"), mcpConfigPath: path.join(os.homedir(), ".claude.json"), mcpKey: "mcpServers" },
 ];
 
 export function getPlatform(name: string): Platform | undefined {
