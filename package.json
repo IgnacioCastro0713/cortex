@@ -1,6 +1,6 @@
 {
   "name": "@ignaciocastro0713/cortex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Knowledge distribution engine — syncs AI skills, agents, and MCP configs across projects.",
   "type": "module",
   "bin": {
