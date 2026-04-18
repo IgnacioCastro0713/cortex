@@ -46,16 +46,19 @@ mock.module(srcUrl("core/hash-db.ts"), {
 });
 
 mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
+mock.module(srcUrl("core/mcp.ts"), {
+  namedExports: {
+    displayPath: (p: string) => p,
+  },
+});
 mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
-    PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
-    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
+    PLATFORMS: [{ name: "copilot", targetDir: "/mock/home/.github" }, { name: "gemini", targetDir: "/mock/home/.gemini" }],
+    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: "/mock/home/.github" }, gemini: { name: "gemini", targetDir: "/mock/home/.gemini" } })[name],
   },
 });
 
 const { clean } = await import("../../src/commands/clean.ts");
-
-const CWD = path.normalize("/tmp/project");
 
 beforeEach(() => {
   removeFileMock.mock.resetCalls();
@@ -72,14 +75,14 @@ describe("clean", () => {
       skills: { paths: [] },
       agents: { paths: [] },
     }));
-    const skillsFile = path.join(CWD, ".github", "skills", "planning.md").replace(/\\/g, "/");
-    const agentsFile = path.join(CWD, ".github", "agents", "code-review.md").replace(/\\/g, "/");
+    const skillsFile = "/mock/home/.github/skills/planning.md";
+    const agentsFile = "/mock/home/.github/agents/code-review.md";
     loadHashDBMock.mock.mockImplementation(async () => ({
       [skillsFile]: "abc",
       [agentsFile]: "def",
     }));
 
-    await clean(CWD);
+    await clean();
 
     assert.equal(removeFileMock.mock.callCount(), 2);
     assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("Removed 1")));
@@ -94,7 +97,7 @@ describe("clean", () => {
     }));
     loadHashDBMock.mock.mockImplementation(async () => ({}));
 
-    await clean(CWD);
+    await clean();
 
     assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("No managed files")));
   });
@@ -106,11 +109,11 @@ describe("clean", () => {
       skills: { paths: [] },
       agents: { paths: [] },
     }));
-    const f1 = path.join(CWD, ".github", "skills", "a.md").replace(/\\/g, "/");
-    const f2 = path.join(CWD, ".gemini", "skills", "a.md").replace(/\\/g, "/");
+    const f1 = "/mock/home/.github/skills/a.md";
+    const f2 = "/mock/home/.gemini/skills/a.md";
     loadHashDBMock.mock.mockImplementation(async () => ({ [f1]: "x", [f2]: "y" }));
 
-    await clean(CWD);
+    await clean();
 
     assert.equal(removeFileMock.mock.callCount(), 2);
     assert.equal(saveHashDBMock.mock.callCount(), 1);

@@ -19,7 +19,7 @@ export interface McpSyncResult {
  */
 function resolveServer(server: McpServer): McpServer {
   if (!server.cwd) return server;
-  const resolved = expandPath(server.cwd, DEPS_DIR, process.cwd());
+  const resolved = expandPath(server.cwd, DEPS_DIR);
   return { ...server, cwd: resolved };
 }
 
@@ -40,7 +40,7 @@ export async function syncMCP(
   const results: McpSyncResult[] = [];
 
   for (const platform of platforms) {
-    const configPath = platform.mcpConfigPath;
+    const configPath = path.join(platform.targetDir, platform.mcpConfigFile);
 
     if (dryRun) {
       results.push({ platform: platform.name, configPath, ok: true });

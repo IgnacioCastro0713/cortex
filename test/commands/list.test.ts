@@ -10,7 +10,7 @@ const srcUrl = (file: string) => pathToFileURL(path.join(srcDir, file)).href;
 type Entry = { source: string; fileName: string };
 
 const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
-const resolveEntriesMock = mock.fn<(patterns: string[], cwd: string) => Promise<Entry[]>>();
+const resolveEntriesMock = mock.fn<(patterns: string[]) => Promise<Entry[]>>();
 const accessMock = mock.fn(async () => {});
 const logMock = {
   plain: mock.fn(),
@@ -43,16 +43,19 @@ mock.module("node:fs/promises", {
 
 mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("utils/tree.ts"), { namedExports: { renderTree: (section: string, files: string[]) => `${section}/\n${files.join("\n")}` } });
+mock.module(srcUrl("core/mcp.ts"), {
+  namedExports: {
+    displayPath: (p: string) => p,
+  },
+});
 mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
-    PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
-    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
+    PLATFORMS: [{ name: "copilot", targetDir: "/mock/home/.github" }, { name: "gemini", targetDir: "/mock/home/.gemini" }],
+    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: "/mock/home/.github" }, gemini: { name: "gemini", targetDir: "/mock/home/.gemini" } })[name],
   },
 });
 
 const { list } = await import("../../src/commands/list.ts");
-
-const CWD = path.normalize("/tmp/project");
 
 beforeEach(() => {
   resolveEntriesMock.mock.resetCalls();
@@ -68,13 +71,13 @@ describe("list", () => {
       skills: { paths: ["~/.cortex/ai/skills/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/home/user/.cortex/ai/skills/planning.md", fileName: "planning.md" }];
     });
     accessMock.mock.mockImplementation(async () => {});
 
-    await list(CWD);
+    await list();
 
     assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("planning.md")));
     assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("1 file(s)")));
@@ -87,12 +90,12 @@ describe("list", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (_patterns, _cwd) => [
+    resolveEntriesMock.mock.mockImplementation(async (_patterns) => [
       { source: "/missing/broken.md", fileName: "broken.md" },
     ]);
     accessMock.mock.mockImplementation(async () => { throw new Error("ENOENT"); });
 
-    await list(CWD);
+    await list();
 
     assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("broken.md")));
   });
@@ -104,9 +107,9 @@ describe("list", () => {
       skills: { paths: [] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (_patterns, _cwd) => []);
+    resolveEntriesMock.mock.mockImplementation(async (_patterns) => []);
 
-    await list(CWD);
+    await list();
 
     assert.ok(logMock.outro.mock.calls.some((c) => String(c.arguments[0]).includes("No files resolved")));
   });

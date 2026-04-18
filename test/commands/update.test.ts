@@ -11,7 +11,6 @@ const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
 const isGitRepoMock = mock.fn<(dir: string) => Promise<boolean>>(async () => false);
 const gitPullMock = mock.fn<(dir: string) => Promise<string>>(async () => "");
 const gitCloneOrPullMock = mock.fn<(url: string, dir: string) => Promise<string>>(async () => "");
-const spinnerMock = { start: mock.fn(), stop: mock.fn() };
 const logMock = {
   plain: mock.fn(),
   success: mock.fn(),
@@ -51,8 +50,6 @@ beforeEach(() => {
     fn.mock.resetCalls();
   }
   for (const fn of Object.values(logMock)) fn.mock.resetCalls();
-  spinnerMock.start.mock.resetCalls();
-  spinnerMock.stop.mock.resetCalls();
 });
 
 describe("update", () => {

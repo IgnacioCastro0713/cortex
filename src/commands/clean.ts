@@ -5,8 +5,9 @@ import { log } from "../utils/log.ts";
 import { getPlatform } from "../core/constants.ts";
 import { getSections, readConfigOrExit } from "../core/resolver.ts";
 import { loadHashDB, saveHashDB, normalizeKey } from "../core/hash-db.ts";
+import { displayPath } from "../core/mcp.ts";
 
-export async function clean(cwd: string): Promise<void> {
+export async function clean(): Promise<void> {
   log.header("clean");
 
   const config = await readConfigOrExit();
@@ -18,10 +19,10 @@ export async function clean(cwd: string): Promise<void> {
     if (!platform) continue;
     const { name, targetDir } = platform;
 
-    console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${targetDir}/)`)}`);
+    console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${displayPath(targetDir)}/)`)}`);
 
     for (const section of getSections(config)) {
-      const targetDirPath = path.join(cwd, targetDir, section.name);
+      const targetDirPath = path.join(targetDir, section.name);
       const removed: string[] = [];
 
       for (const destPath of Object.keys(hashDB)) {
@@ -34,10 +35,10 @@ export async function clean(cwd: string): Promise<void> {
       }
 
       if (removed.length > 0) {
-        log.success(`Removed ${removed.length} file(s) from ${targetDir}/${section.name}/`);
+        log.success(`Removed ${removed.length} file(s) from ${displayPath(targetDir)}/${section.name}/`);
         total += removed.length;
       } else {
-        log.dim(`No managed files in ${targetDir}/${section.name}/`);
+        log.dim(`No managed files in ${displayPath(targetDir)}/${section.name}/`);
       }
     }
   }

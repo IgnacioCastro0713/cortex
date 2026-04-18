@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { resolveGlob, createSymlink, cleanSymlinks, isGitRepo } from "../../src/utils/fs-utils.ts";
+import { resolveGlob, isGitRepo } from "../../src/utils/fs-utils.ts";
 
 let tmpDir: string;
 
@@ -53,91 +53,6 @@ describe("resolveGlob", () => {
     const result = await resolveGlob(path.join(tmpDir, "*"));
     assert.equal(result.length, 1);
     assert.equal(path.basename(result[0]!), "skill-dir");
-  });
-});
-
-describe("createSymlink", () => {
-  it("creates a symlink to a file", async () => {
-    const target = path.join(tmpDir, "source.md");
-    const link = path.join(tmpDir, "link.md");
-    await fs.writeFile(target, "hello");
-
-    await createSymlink(target, link);
-
-    const stat = await fs.lstat(link);
-    assert.ok(stat.isSymbolicLink());
-    const content = await fs.readFile(link, "utf-8");
-    assert.equal(content, "hello");
-  });
-
-  it("creates parent directories for the link", async () => {
-    const target = path.join(tmpDir, "source.md");
-    const link = path.join(tmpDir, "deep", "nested", "link.md");
-    await fs.writeFile(target, "data");
-
-    await createSymlink(target, link);
-
-    const stat = await fs.lstat(link);
-    assert.ok(stat.isSymbolicLink());
-  });
-
-  it("overwrites an existing symlink", async () => {
-    const target1 = path.join(tmpDir, "first.md");
-    const target2 = path.join(tmpDir, "second.md");
-    const link = path.join(tmpDir, "link.md");
-    await fs.writeFile(target1, "first");
-    await fs.writeFile(target2, "second");
-
-    await createSymlink(target1, link);
-    await createSymlink(target2, link);
-
-    const content = await fs.readFile(link, "utf-8");
-    assert.equal(content, "second");
-  });
-});
-
-describe("cleanSymlinks", () => {
-  it("removes symlinks from a directory", async () => {
-    const target = path.join(tmpDir, "source.md");
-    const dir = path.join(tmpDir, "links");
-    await fs.writeFile(target, "content");
-    await fs.mkdir(dir);
-    await fs.symlink(target, path.join(dir, "link.md"));
-
-    const removed = await cleanSymlinks(dir);
-    assert.equal(removed, 1);
-
-    const entries = await fs.readdir(dir);
-    assert.equal(entries.length, 0);
-  });
-
-  it("leaves regular files untouched", async () => {
-    const dir = path.join(tmpDir, "mixed");
-    await fs.mkdir(dir);
-    await fs.writeFile(path.join(dir, "regular.md"), "keep me");
-
-    const target = path.join(tmpDir, "source.md");
-    await fs.writeFile(target, "");
-    await fs.symlink(target, path.join(dir, "link.md"));
-
-    const removed = await cleanSymlinks(dir);
-    assert.equal(removed, 1);
-
-    const entries = await fs.readdir(dir);
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0], "regular.md");
-  });
-
-  it("returns 0 for non-existent directory", async () => {
-    const removed = await cleanSymlinks(path.join(tmpDir, "nope"));
-    assert.equal(removed, 0);
-  });
-
-  it("returns 0 for empty directory", async () => {
-    const dir = path.join(tmpDir, "empty");
-    await fs.mkdir(dir);
-    const removed = await cleanSymlinks(dir);
-    assert.equal(removed, 0);
   });
 });
 

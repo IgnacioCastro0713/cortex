@@ -24,6 +24,11 @@ describe("defaultConfig", () => {
     const config = defaultConfig();
     assert.deepEqual(config.agents.paths, ["~/.cortex/ai/agents/*"]);
   });
+
+  it("has empty mcp", () => {
+    const config = defaultConfig();
+    assert.deepEqual(config.mcp, {});
+  });
 });
 
 describe("TOML roundtrip", () => {
@@ -33,6 +38,7 @@ describe("TOML roundtrip", () => {
       deps: { "design-doc": "https://github.com/example/repo" },
       skills: { paths: ["~/.cortex/ai/skills/*", "@design-doc/skills"] },
       agents: { paths: ["~/.cortex/ai/agents/*"] },
+      mcp: {},
     };
 
     const toml = stringify(original as unknown as Record<string, unknown>);

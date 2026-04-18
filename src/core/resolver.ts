@@ -9,10 +9,10 @@ export interface ResolvedEntry {
   fileName: string;
 }
 
-export async function resolveEntries(patterns: string[], cwd: string): Promise<ResolvedEntry[]> {
+export async function resolveEntries(patterns: string[]): Promise<ResolvedEntry[]> {
   const entries: ResolvedEntry[] = [];
   for (const raw of patterns) {
-    const expanded = expandPath(raw, DEPS_DIR, cwd);
+    const expanded = expandPath(raw, DEPS_DIR);
     const files = await resolveGlob(expanded);
     for (const source of files) {
       entries.push({ source, fileName: path.basename(source) });

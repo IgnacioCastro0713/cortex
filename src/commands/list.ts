@@ -4,8 +4,9 @@ import { log } from "../utils/log.ts";
 import { getPlatform } from "../core/constants.ts";
 import { resolveEntries, getSections, readConfigOrExit } from "../core/resolver.ts";
 import { renderTree } from "../utils/tree.ts";
+import { displayPath } from "../core/mcp.ts";
 
-export async function list(cwd: string): Promise<void> {
+export async function list(): Promise<void> {
   log.header("list");
 
   const config = await readConfigOrExit();
@@ -19,7 +20,7 @@ export async function list(cwd: string): Promise<void> {
     const sectionLines: string[] = [];
 
     for (const section of getSections(config)) {
-      const entries = await resolveEntries(section.paths, cwd);
+      const entries = await resolveEntries(section.paths);
       if (entries.length === 0) continue;
 
       const fileNames: string[] = [];
@@ -47,7 +48,7 @@ export async function list(cwd: string): Promise<void> {
     }
 
     if (sectionLines.length > 0) {
-      console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${targetDir}/)`)}`);
+      console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${displayPath(targetDir)}/)`)}`);
       log.dim(sectionLines.join("\n\n"));
       console.log();
     }

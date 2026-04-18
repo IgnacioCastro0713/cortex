@@ -10,7 +10,7 @@ const srcUrl = (file: string) => pathToFileURL(path.join(srcDir, file)).href;
 type Entry = { source: string; fileName: string };
 
 const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
-const resolveEntriesMock = mock.fn<(patterns: string[], cwd: string) => Promise<Entry[]>>();
+const resolveEntriesMock = mock.fn<(patterns: string[]) => Promise<Entry[]>>();
 const copyFileAtomicMock = mock.fn<(src: string, dest: string) => Promise<Buffer>>(async () => Buffer.from("content"));
 const removeFileMock = mock.fn(async () => {});
 const removeEmptyDirsMock = mock.fn(async () => {});
@@ -45,7 +45,7 @@ mock.module(srcUrl("core/resolver.ts"), {
 });
 
 mock.module(srcUrl("utils/fs-utils.ts"), {
-  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock, expandPath: (raw: string) => raw },
+  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock },
 });
 
 mock.module(srcUrl("core/hash-db.ts"), {
@@ -71,14 +71,12 @@ mock.module(srcUrl("core/constants.ts"), {
     CORTEX_DIR: "/mock/.cortex",
     AI_DIR: "/mock/.cortex/ai",
     DEPS_DIR: "/mock/.cortex/deps",
-    PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
-    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
+    PLATFORMS: [{ name: "copilot", targetDir: "/mock/home/.github" }, { name: "gemini", targetDir: "/mock/home/.gemini" }],
+    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: "/mock/home/.github" }, gemini: { name: "gemini", targetDir: "/mock/home/.gemini" } })[name],
   },
 });
 
 const { sync } = await import("../../src/commands/sync.ts");
-
-const CWD = path.normalize("/tmp/project");
 
 beforeEach(() => {
   for (const fn of [readConfigOrExitMock, resolveEntriesMock, copyFileAtomicMock, removeFileMock, removeEmptyDirsMock, saveHashDBMock, listMdFilesMock, isDirtyMock, fileExistsMock]) {
@@ -100,7 +98,7 @@ describe("sync", () => {
       agents: { paths: [] },
     }));
 
-    await sync(CWD);
+    await sync();
 
     assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("No platforms")));
     assert.equal(copyFileAtomicMock.mock.callCount(), 0);
@@ -114,7 +112,7 @@ describe("sync", () => {
       agents: { paths: [] },
     }));
 
-    await sync(CWD);
+    await sync();
 
     assert.ok(logMock.warn.mock.calls.some((c) => String(c.arguments[0]).includes("Unknown platform")));
   });
@@ -126,12 +124,12 @@ describe("sync", () => {
       skills: { paths: ["~/.cortex/ai/skills/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/home/user/.cortex/ai/skills/planning.md", fileName: "planning.md" }];
     });
 
-    await sync(CWD);
+    await sync();
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 1);
     const args = copyFileAtomicMock.mock.calls[0]!.arguments;
@@ -146,11 +144,11 @@ describe("sync", () => {
       skills: { paths: ["~/.cortex/ai/skills/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (_patterns, _cwd) => [
+    resolveEntriesMock.mock.mockImplementation(async (_patterns) => [
       { source: "/home/user/.cortex/ai/skills/planning.md", fileName: "planning.md" },
     ]);
 
-    await sync(CWD, { dryRun: true });
+    await sync({ dryRun: true });
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 0);
     assert.equal(saveHashDBMock.mock.callCount(), 0);
@@ -164,12 +162,12 @@ describe("sync", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (_patterns, _cwd) => [
+    resolveEntriesMock.mock.mockImplementation(async (_patterns) => [
       { source: "/some/source.md", fileName: "source.md" },
     ]);
     copyFileAtomicMock.mock.mockImplementation(async (_src, _dest) => { throw new Error("EPERM"); });
 
-    await sync(CWD);
+    await sync();
 
     assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("failed")));
   });
@@ -181,13 +179,13 @@ describe("sync", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/some/source.md", fileName: "source.md" }];
     });
     isDirtyMock.mock.mockImplementation(async () => true);
 
-    await sync(CWD);
+    await sync();
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 0);
   });
@@ -199,13 +197,13 @@ describe("sync", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/some/source.md", fileName: "source.md" }];
     });
     isDirtyMock.mock.mockImplementation(async () => true);
 
-    await sync(CWD, { force: true });
+    await sync({ force: true });
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 1);
   });
@@ -217,13 +215,13 @@ describe("sync", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/some/source.md", fileName: "source.md" }];
     });
     isDirtyMock.mock.mockImplementation(async () => false);
 
-    await sync(CWD);
+    await sync();
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 1);
   });
@@ -235,13 +233,13 @@ describe("sync", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/some/source.md", fileName: "source.md" }];
     });
     fileExistsMock.mock.mockImplementation(async () => true); // dest exists but not in hashDB
 
-    await sync(CWD);
+    await sync();
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 0);
   });
@@ -253,13 +251,13 @@ describe("sync", () => {
       skills: { paths: ["path/*"] },
       agents: { paths: [] },
     }));
-    resolveEntriesMock.mock.mockImplementation(async (patterns, _cwd) => {
+    resolveEntriesMock.mock.mockImplementation(async (patterns) => {
       if (patterns.length === 0) return [];
       return [{ source: "/some/source.md", fileName: "source.md" }];
     });
     fileExistsMock.mock.mockImplementation(async () => true);
 
-    await sync(CWD, { force: true });
+    await sync({ force: true });
 
     assert.equal(copyFileAtomicMock.mock.callCount(), 1);
   });

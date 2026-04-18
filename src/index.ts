@@ -17,16 +17,13 @@ Usage:
 Commands:
   init     Generate ~/.cortex/cortex.toml and ensure ~/.cortex/ai structure exists
   update   Pull latest changes for ~/.cortex/ai and all deps
-  sync     Copy knowledge files and MCP configs into the current project
+  sync     Copy knowledge files and MCP configs into global platform directories
   list     Show the map of linked files
-  clean    Remove all cortex-managed files from the current project
+  clean    Remove all cortex-managed files from platform directories
 
 Options:
   --dry-run, -d   Preview sync without making changes
   --force, -f     Overwrite locally modified files
-  --skills        Sync only skills
-  --agents        Sync only agents
-  --mcp           Sync only MCP server configs
   --version, -v   Show version
   --help, -h      Show this help message
 `.trim();
@@ -39,9 +36,6 @@ async function main(): Promise<void> {
       version: { type: "boolean", short: "v", default: false },
       "dry-run": { type: "boolean", short: "d", default: false },
       force: { type: "boolean", short: "f", default: false },
-      skills: { type: "boolean", default: false },
-      agents: { type: "boolean", default: false },
-      mcp: { type: "boolean", default: false },
     },
   });
 
@@ -58,7 +52,6 @@ async function main(): Promise<void> {
   }
 
   const command = positionals[0];
-  const cwd = process.cwd();
 
   switch (command) {
     case "init":
@@ -68,19 +61,16 @@ async function main(): Promise<void> {
       await update();
       break;
     case "sync":
-      await sync(cwd, {
+      await sync({
         dryRun: values["dry-run"],
         force: values.force,
-        skills: values.skills,
-        agents: values.agents,
-        mcp: values.mcp,
       });
       break;
     case "list":
-      await list(cwd);
+      await list();
       break;
     case "clean":
-      await clean(cwd);
+      await clean();
       break;
     default:
       console.error(`Unknown command: ${command}\n`);

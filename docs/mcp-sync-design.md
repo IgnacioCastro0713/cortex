@@ -23,12 +23,7 @@
 
 ### 2.1 Problem Statement
 
-AI coding assistants (Copilot CLI, Gemini CLI) support MCP servers configured via JSON files in the user's home directory. Each platform has its own config file:
-
-| Platform | Config file | Key |
-|----------|------------|-----|
-| Copilot  | `~/.copilot/mcp-config.json` | `mcpServers` |
-| Gemini   | `~/.gemini/settings.json`    | `mcpServers` |
+AI coding assistants (Copilot CLI, Gemini CLI) support MCP servers configured via JSON files in the user's home directory. Each platform has its own config file (see [Platform Definitions](design-doc.md#platform-definitions) for the full table).
 
 **Pain points:**
 - Adding a new MCP server means editing 2+ JSON files manually
@@ -206,11 +201,13 @@ interface McpServer {
 ```typescript
 interface Platform {
   name: string;
-  targetDir: string;      // for skills/agents (e.g., ".github")
-  mcpConfigPath: string;  // global JSON config path
+  targetDir: string;      // global dir (e.g., "~/.copilot")
+  mcpConfigFile: string;  // JSON filename (e.g., "mcp-config.json")
   mcpKey: string;         // key name in the JSON file
 }
 ```
+
+The full MCP config path is derived as `path.join(targetDir, mcpConfigFile)`.
 
 #### SyncOptions Interface (extended)
 
@@ -246,7 +243,7 @@ sequenceDiagram
     participant FS as File System
 
     User->>CLI: cortex sync [--mcp]
-    CLI->>Sync: sync(cwd, { mcp: true })
+    CLI->>Sync: sync({ mcp: true })
     Sync->>Sync: Resolve filter flags
 
     alt syncSkills || syncAgents
@@ -311,7 +308,6 @@ The `cwd` field in an MCP server definition supports the same path prefixes as s
 |-------|-------------|
 | `~/projects/tool` | `/home/user/projects/tool` |
 | `@dep-name` | `~/.cortex/deps/dep-name/` |
-| `./relative` | `{cwd}/relative` |
 
 This is handled by `resolveServer()` which delegates to the existing `expandPath()` utility.
 
@@ -332,7 +328,7 @@ This is handled by `resolveServer()` which delegates to the existing `expandPath
 | File | Changes |
 |------|---------|
 | `src/core/parser.ts` | Added `McpServer` interface, `mcp` field to `CortexConfig`, default `mcp: {}` |
-| `src/core/constants.ts` | Added `mcpConfigPath` and `mcpKey` to `Platform` interface and `PLATFORMS` array |
+| `src/core/constants.ts` | Added `mcpConfigFile` and `mcpKey` to `Platform` interface and `PLATFORMS` array |
 | `src/commands/sync.ts` | Added `skills`, `agents`, `mcp` to `SyncOptions`. Filter resolution logic. Platform loop restructured. MCP sync section. |
 | `src/index.ts` | Added `--skills`, `--agents`, `--mcp` to `parseArgs`. Updated HELP text. Passes flags to `sync()`. |
 | `README.md` | Added MCP config example, filter flags, platform MCP paths, updated project structure |
@@ -349,7 +345,7 @@ Output: McpSyncResult[]
 ```
 
 For each platform:
-1. Read existing JSON from `platform.mcpConfigPath` (empty `{}` if missing/invalid)
+1. Read existing JSON from `path.join(platform.targetDir, platform.mcpConfigFile)` (empty `{}` if missing/invalid)
 2. Get existing servers: `prev = existing[platform.mcpKey] ?? {}`
 3. Merge: `existing[platform.mcpKey] = { ...prev, ...resolved }`
 4. Atomic write: `writeFile(tmp)` → `rename(tmp, config)`
@@ -423,7 +419,7 @@ Trade-off: Cortex cannot remove a server from platform configs just by deleting 
 
 ### Why global, not per-project?
 
-MCP servers are tools available to the AI assistant regardless of project context. A Playwright MCP server is useful in any project — there's no reason to scope it to a working directory. Platform CLIs read MCP configs from `~/` paths, not from the project directory.
+See [Why global sync instead of per-project?](design-doc.md#why-global-sync-instead-of-per-project) in the main design doc. MCP servers are tools available to the AI assistant regardless of project context.
 
 ### Why `mcpKey` per platform?
 

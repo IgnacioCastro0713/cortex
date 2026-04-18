@@ -10,24 +10,24 @@ Cortex is deliberately minimal — it syncs knowledge files and MCP configs. It 
 
 Each AI coding assistant expects knowledge files in different locations:
 
-| Assistant       | Directory   |
-|-----------------|-------------|
-| GitHub Copilot  | `.github/`  |
-| Gemini CLI      | `.gemini/`  |
+| Assistant       | Global directory  |
+|-----------------|-------------------|
+| GitHub Copilot  | `~/.copilot/`    |
+| Gemini CLI      | `~/.gemini/`     |
 
 If you use both assistants across multiple projects, you end up duplicating the same agent definitions and skill prompts everywhere. Any edit means visiting every project — tedious and error-prone.
 
 ## Solution
 
-Cortex is a CLI tool that reads a single TOML manifest (`~/.cortex/cortex.toml`) and distributes knowledge files to the right locations per platform. It also syncs MCP server definitions to each platform's global config file.
+Cortex is a CLI tool that reads a single TOML manifest (`~/.cortex/cortex.toml`) and distributes knowledge files to each platform's global directory. It also syncs MCP server definitions to each platform's config file.
 
 ## Core Concepts
 
 - **Manifest** (`~/.cortex/cortex.toml`) — global config file that lives at `~/.cortex/`. Declares platforms, deps, skills, agents, and MCP servers.
-- **Skills** — prompt files that agents consume. Copied to each platform's target directory within the project.
+- **Skills** — prompt files that agents consume. Copied to each platform's global directory (`~/.copilot/skills/`, `~/.gemini/skills/`).
 - **Agents** — subagent definitions. Same copy strategy as skills.
 - **Dependencies** — external git repos cloned to `~/.cortex/deps/`. Referenced in paths via `@name` prefix. Clone-only — updated explicitly via `cortex update`, never during `cortex sync`.
-- **MCP Servers** — Model Context Protocol server definitions. Written to each platform's global config file (not per-project). Cortex owns the `mcpServers` key completely.
+- **MCP Servers** — Model Context Protocol server definitions. Merged into each platform's config file. Cortex-managed servers are added or updated; user-defined servers are preserved.
 - **Hash DB** (`~/.cortex/hashes.json`) — stores MD5 hashes of last-synced content per target file. Enables dirty detection before overwriting.
 
 ## TOML Schema
@@ -63,25 +63,24 @@ env = { CONTEXT7_API_KEY = "$CONTEXT7_API_KEY" }
 |----------|------------------------------------------|
 | `~`      | User home directory                      |
 | `@name`  | `~/.cortex/deps/{name}/`                 |
-| `./`     | Current working directory                |
 
 ## Platform Definitions
 
 Defined in source code, not configurable by the user.
 
-| Platform | Skills/Agents target | MCP config file                | MCP key        |
-|----------|----------------------|--------------------------------|----------------|
-| Copilot  | `.github/`           | `~/.copilot/mcp-config.json`  | `mcpServers`   |
-| Gemini   | `.gemini/`           | `~/.gemini/settings.json`     | `mcpServers`   |
+| Platform | Target directory    | MCP config file                | MCP key        |
+|----------|---------------------|--------------------------------|----------------|
+| Copilot  | `~/.copilot/`      | `~/.copilot/mcp-config.json`  | `mcpServers`   |
+| Gemini   | `~/.gemini/`       | `~/.gemini/settings.json`     | `mcpServers`   |
 
 ## CLI Commands
 
 | Command         | Description                                                           |
 |-----------------|-----------------------------------------------------------------------|
 | `cortex init`   | Scaffold `~/.cortex/cortex.toml` and directory structure              |
-| `cortex sync`   | Copy knowledge files into the current project + sync MCP configs      |
+| `cortex sync`   | Copy knowledge files to global platform directories + sync MCP configs|
 | `cortex list`   | Show the map of knowledge sources configured in `cortex.toml`         |
-| `cortex clean`  | Remove all cortex-managed files from the current project              |
+| `cortex clean`  | Remove all cortex-managed files from platform directories             |
 | `cortex update` | Pull latest changes for `~/.cortex/ai/` and all deps                 |
 
 ### Flags
@@ -144,18 +143,25 @@ When a file is removed from the TOML config, Cortex detects it by comparing the 
 
 ## MCP Sync Strategy
 
-Cortex owns the `mcpServers` key in each platform's config file completely. The TOML is the single source of truth.
+Cortex uses a **merge strategy** for MCP configs: Cortex-managed servers are added or updated, while user-defined servers in the platform config file are preserved. All writes are atomic (tmp file + rename).
 
-1. Read the existing JSON config file (if any).
-2. Replace the entire `mcpServers` key with all resolved MCP definitions from the TOML.
-3. Preserve all other keys in the file untouched.
-4. Write atomically (tmp file + rename).
-
-MCP configs are **global** — they live in the user's home directory, not inside the project. This is because MCP servers are tools available to the assistant regardless of project context.
+For the full MCP design — data model, merge flow diagrams, filter flags, and edge cases — see [mcp-sync-design.md](mcp-sync-design.md).
 
 ---
 
 ## Design Decisions
+
+### Why global sync instead of per-project?
+
+Earlier versions of Cortex copied files into the project directory (`.github/`, `.gemini/`). This was changed to global sync (`~/.copilot/`, `~/.gemini/`) for several reasons:
+
+1. **Single source of truth.** Skills and agents are user-level knowledge, not project-level configuration. Copying them into every project creates N copies that all need to stay in sync.
+
+2. **No project setup required.** With global sync, knowledge is available in every project without running `cortex sync` per repo. Open any folder in your editor and the assistant already has your instructions.
+
+3. **Consistent with MCP.** MCP configs were already global. Having skills/agents also be global means `cortex sync` has a single mental model: everything goes to `$HOME`.
+
+4. **Simpler implementation.** No need to resolve the current working directory for target paths. The `cwd` parameter was removed from the sync pipeline entirely.
 
 ### Why copies instead of symlinks?
 
@@ -207,10 +213,6 @@ MD5 is not used for security — it's used for change detection. It's fast, prod
 
 Every file write (copies, hash DB, MCP configs) goes through a tmp-file-then-rename pattern. This prevents partial writes from corrupting files if the process is interrupted. The rename operation is atomic on all major filesystems.
 
-### Why `mcpKey` per platform?
-
-Both platforms currently use `mcpServers` as the key, but this is a coincidence of the current moment. Having `mcpKey` as a platform-level field means adding a new platform with a different key name requires zero code changes — just a new entry in the `PLATFORMS` array.
-
 ---
 
 ## Folder Structure
@@ -246,7 +248,7 @@ src/
     update.ts               Pull ai/ and deps
     sync.ts                 Copy files + sync MCPs
     list.ts                 Show configured knowledge map
-    clean.ts                Remove managed files from project
+    clean.ts                Remove managed files from platform directories
 ```
 
 ## Tech Stack
