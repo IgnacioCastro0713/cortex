@@ -56,17 +56,22 @@ async function removeStaleFiles(entries: ResolvedEntry[], targetDirPath: string,
   }
 }
 
+interface TaggedEntry {
+  path: string;
+  reason: string;
+}
+
 interface CopyResult {
   copied: string[];
-  skipped: string[];
-  failed: string[];
+  skipped: TaggedEntry[];
+  failed: TaggedEntry[];
 }
 
 /** Copies resolved entries to the target directory, skipping dirty or unmanaged files unless forced. */
 async function copyEntries(entries: ResolvedEntry[], targetDirPath: string, hashDB: HashDB, force: boolean): Promise<CopyResult> {
   const copied: string[] = [];
-  const skipped: string[] = [];
-  const failed: string[] = [];
+  const skipped: TaggedEntry[] = [];
+  const failed: TaggedEntry[] = [];
 
   for (const { source, fileName } of entries) {
     const destPath = path.join(targetDirPath, fileName);
@@ -76,18 +81,19 @@ async function copyEntries(entries: ResolvedEntry[], targetDirPath: string, hash
       const destExists = await fileExists(destPath);
 
       if (!force && destExists && !isManaged) {
-        skipped.push(relDest);
+        skipped.push({ path: relDest, reason: "unmanaged" });
         continue;
       }
       if (!force && await isDirty(hashDB, destPath)) {
-        skipped.push(relDest);
+        skipped.push({ path: relDest, reason: "locally modified" });
         continue;
       }
       const data = await copyFileAtomic(source, destPath);
       hashDB[normalizeKey(destPath)] = md5(data);
       copied.push(relDest);
-    } catch {
-      failed.push(relDest);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      failed.push({ path: relDest, reason: msg });
     }
   }
 
@@ -109,8 +115,8 @@ function renderSectionResult(sectionName: string, { copied, skipped, failed }: C
 
   const treeEntries = [
     ...copied,
-    ...skipped.map((p) => p.replace(/([^/]+)$/, "⚠ $1")),
-    ...failed.map((p)  => p.replace(/([^/]+)$/, "✗ $1")),
+    ...skipped.map(({ path: p, reason }) => p.replace(/([^/]+)$/, `⚠ $1 (${reason})`)),
+    ...failed.map(({ path: p, reason })  => p.replace(/([^/]+)$/, `✗ $1 (${reason})`)),
   ];
 
   log.success(`${sectionName}/  (${parts.join(", ")})`);

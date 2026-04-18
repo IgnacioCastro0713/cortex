@@ -43,17 +43,6 @@ mock.module("node:fs/promises", {
 
 mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("utils/tree.ts"), { namedExports: { renderTree: (section: string, files: string[]) => `${section}/\n${files.join("\n")}` } });
-mock.module(srcUrl("core/mcp.ts"), {
-  namedExports: {
-    displayPath: (p: string) => p,
-  },
-});
-mock.module(srcUrl("core/constants.ts"), {
-  namedExports: {
-    PLATFORMS: [{ name: "copilot", targetDir: "/mock/home/.github" }, { name: "gemini", targetDir: "/mock/home/.gemini" }],
-    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: "/mock/home/.github" }, gemini: { name: "gemini", targetDir: "/mock/home/.gemini" } })[name],
-  },
-});
 
 const { list } = await import("../../src/commands/list.ts");
 
