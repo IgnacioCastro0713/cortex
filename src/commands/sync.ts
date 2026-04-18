@@ -169,6 +169,7 @@ export async function sync(cwd: string, options: SyncOptions = {}): Promise<void
       for (const section of getSections(config)) {
         const targetDirPath = path.join(cwd, targetDir, section.name);
         const result = await syncSection({ section, targetDirPath, cwd, hashDB, dryRun, force });
+        console.log();
         totalCopied  += result.copied;
         totalSkipped += result.skipped;
         totalFailed  += result.failed;

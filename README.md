@@ -84,7 +84,9 @@ cd your-project
 cortex sync
 ```
 
-Cortex copies your files into `.github/` (Copilot) and `.gemini/` (Gemini). Run this in every project you want to equip. Only files managed by Cortex are overwritten — files you created manually are left untouched. If Cortex previously synced a file and you've edited it locally, that file is skipped with a warning; use `--force` to overwrite it.
+Cortex copies your files into `.github/` (Copilot) and `.gemini/` (Gemini). Run this in every project you want to equip. Only files managed by Cortex are overwritten — files you created manually are left untouched. If Cortex previously synced a file and you've edited it locally, that file is skipped with a `⚠` warning in the tree; use `--force` to overwrite it.
+
+Files removed from your config are automatically detected and deleted from the project on the next sync. Empty directories are cleaned up automatically; directories containing files not managed by Cortex are preserved.
 
 ## How it works
 
@@ -129,7 +131,7 @@ graph TB
 |---------|-------------|
 | `cortex init` | Create `~/.cortex/cortex.toml` and the `~/.cortex/ai/` folder structure |
 | `cortex sync` | Copy knowledge files into the current project (hash-tracked, skips locally modified files) |
-| `cortex list` | Show the map of linked files (flags broken sources with ⚠) |
+| `cortex list` | Show the map of knowledge sources configured in `cortex.toml` |
 | `cortex clean` | Remove all cortex-managed files from the current project |
 | `cortex update` | Pull latest changes for `~/.cortex/ai/` and all deps |
 
@@ -163,13 +165,17 @@ graph TB
 
 ```
 src/
-  index.ts        Entry point and argument parsing
-  constants.ts    Shared paths and platform definitions
-  resolver.ts     Config resolution and entry deduplication
-  parser.ts       TOML config reader/writer
-  fs-utils.ts     Filesystem operations (copy, glob, path expansion)
-  git-utils.ts    Git wrapper (clone, pull)
-  log.ts          Colored terminal output via util.styleText()
+  index.ts          Entry point and argument parsing
+  core/
+    constants.ts    Shared paths and platform definitions
+    hash-db.ts      MD5 hash tracking for dirty-file detection
+    parser.ts       TOML config reader/writer
+    resolver.ts     Config resolution and entry deduplication
+  utils/
+    fs-utils.ts     Filesystem operations (copy, glob, path expansion)
+    git-utils.ts    Git wrapper (clone, pull)
+    log.ts          Colored terminal output via node:util styleText
+    tree.ts         ASCII tree renderer
   commands/
     init.ts
     update.ts
