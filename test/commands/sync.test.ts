@@ -45,7 +45,7 @@ mock.module(srcUrl("core/resolver.ts"), {
 });
 
 mock.module(srcUrl("utils/fs-utils.ts"), {
-  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock },
+  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock, expandPath: (raw: string) => raw },
 });
 
 mock.module(srcUrl("core/hash-db.ts"), {
@@ -60,8 +60,17 @@ mock.module(srcUrl("core/hash-db.ts"), {
 
 mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("utils/tree.ts"), { namedExports: { renderTree: (section: string, files: string[]) => `${section}/\n${files.join("\n")}` } });
+mock.module(srcUrl("core/mcp.ts"), {
+  namedExports: {
+    syncMCP: mock.fn(async () => []),
+    displayPath: (p: string) => p,
+  },
+});
 mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
+    CORTEX_DIR: "/mock/.cortex",
+    AI_DIR: "/mock/.cortex/ai",
+    DEPS_DIR: "/mock/.cortex/deps",
     PLATFORMS: [{ name: "copilot", targetDir: ".github" }, { name: "gemini", targetDir: ".gemini" }],
     getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: ".github" }, gemini: { name: "gemini", targetDir: ".gemini" } })[name],
   },

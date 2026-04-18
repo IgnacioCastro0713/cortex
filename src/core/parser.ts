@@ -3,11 +3,19 @@ import path from "node:path";
 import { parse, stringify } from "smol-toml";
 import { CORTEX_DIR } from "./constants.ts";
 
+export interface McpServer {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+}
+
 export interface CortexConfig {
   platforms: string[];
   deps: Record<string, string>;
   skills: { paths: string[] };
   agents: { paths: string[] };
+  mcp: Record<string, McpServer>;
 }
 
 const CONFIG_PATH = path.join(CORTEX_DIR, "cortex.toml");
@@ -24,6 +32,7 @@ export async function readConfig(): Promise<CortexConfig> {
     deps: (data.deps as Record<string, string>) ?? {},
     skills: (data.skills as { paths: string[] }) ?? { paths: [] },
     agents: (data.agents as { paths: string[] }) ?? { paths: [] },
+    mcp: (data.mcp as Record<string, McpServer>) ?? {},
   };
 }
 
@@ -44,6 +53,7 @@ export function defaultConfig(): CortexConfig {
     deps: {},
     skills: { paths: ["~/.cortex/ai/skills/*"] },
     agents: { paths: ["~/.cortex/ai/agents/*"] },
+    mcp: {},
   };
 }
 

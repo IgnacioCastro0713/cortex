@@ -75,6 +75,16 @@ paths = [
 
 [agents]
 paths = ["~/.cortex/ai/agents/*"]
+
+[mcp]
+# MCP servers synced globally to ~/.copilot/mcp-config.json and ~/.gemini/settings.json
+[mcp.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
 ```
 
 ### 4. Sync into a project
@@ -87,6 +97,8 @@ cortex sync
 Cortex copies your files into `.github/` (Copilot) and `.gemini/` (Gemini). Run this in every project you want to equip. Only files managed by Cortex are overwritten — files you created manually are left untouched. If Cortex previously synced a file and you've edited it locally, that file is skipped with a `⚠` warning in the tree; use `--force` to overwrite it.
 
 Files removed from your config are automatically detected and deleted from the project on the next sync. Empty directories are cleaned up automatically; directories containing files not managed by Cortex are preserved.
+
+MCP server configs defined in `[mcp]` are synced globally (not per-project) to each platform's config file using a **merge strategy** — your manually-defined servers are preserved, and Cortex-managed servers are added or updated.
 
 ## How it works
 
@@ -141,8 +153,13 @@ graph TB
 |------|-------|-------------|
 | `--dry-run` | `-d` | Preview `sync` without making any changes |
 | `--force` | `-f` | Overwrite locally modified files during `sync` |
+| `--skills` | | Sync only skills |
+| `--agents` | | Sync only agents |
+| `--mcp` | | Sync only MCP server configs |
 | `--version` | `-v` | Print the current version and exit |
 | `--help` | `-h` | Show the help message |
+
+Filter flags are composable: `cortex sync --skills --mcp` syncs skills and MCP but skips agents. If no filter flag is provided, everything is synced.
 
 ## Configuration reference
 
@@ -156,10 +173,10 @@ graph TB
 
 ### Platforms
 
-| Platform | Files copied to |
-|----------|---------------------|
-| `copilot` | `.github/` |
-| `gemini` | `.gemini/` |
+| Platform | Files copied to | MCP config path |
+|----------|---------------------|---------------------|
+| `copilot` | `.github/` | `~/.copilot/mcp-config.json` |
+| `gemini` | `.gemini/` | `~/.gemini/settings.json` |
 
 ## Project structure
 
@@ -169,6 +186,7 @@ src/
   core/
     constants.ts    Shared paths and platform definitions
     hash-db.ts      MD5 hash tracking for dirty-file detection
+    mcp.ts          MCP server config merge into platform JSON files
     parser.ts       TOML config reader/writer
     resolver.ts     Config resolution and entry deduplication
   utils/
@@ -191,8 +209,10 @@ test/
     update.test.ts
   fs-utils.test.ts
   fs-utils-io.test.ts
+  mcp.test.ts
   resolver.test.ts
   parser.test.ts
+  sync-filters.test.ts
   git-utils.test.ts
 ```
 

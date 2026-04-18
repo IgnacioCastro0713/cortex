@@ -5,13 +5,18 @@ import { copyFileAtomic, removeFile, removeEmptyDirs, listMdFiles, fileExists } 
 import { loadHashDB, saveHashDB, md5, isDirty, normalizeKey, type HashDB } from "../core/hash-db.ts";
 import { log } from "../utils/log.ts";
 import { getPlatform } from "../core/constants.ts";
+import type { Platform } from "../core/constants.ts";
 import { resolveEntries, deduplicateEntries, getSections, readConfigOrExit } from "../core/resolver.ts";
 import type { ResolvedEntry } from "../core/resolver.ts";
 import { renderTree } from "../utils/tree.ts";
+import { syncMCP, displayPath } from "../core/mcp.ts";
 
 export interface SyncOptions {
   dryRun?: boolean;
   force?: boolean;
+  skills?: boolean;
+  agents?: boolean;
+  mcp?: boolean;
 }
 
 interface SyncSectionOptions {
@@ -150,34 +155,81 @@ export async function sync(cwd: string, options: SyncOptions = {}): Promise<void
   const hashDB = await loadHashDB();
   const dryRun = options.dryRun ?? false;
   const force = options.force ?? false;
+
+  // Filter flags: if none specified, sync everything
+  const hasFilter = !!(options.skills || options.agents || options.mcp);
+  const syncSkills = !hasFilter || !!options.skills;
+  const syncAgents = !hasFilter || !!options.agents;
+  const syncMcp    = !hasFilter || !!options.mcp;
+
   let totalCopied = 0;
   let totalSkipped = 0;
   let totalFailed = 0;
+  const activePlatforms: Platform[] = [];
+
+  // Resolve active platforms
+  for (const platformName of config.platforms) {
+    const platform = getPlatform(platformName);
+    if (!platform) {
+      log.warn(`Unknown platform "${platformName}" — skipping.`);
+      continue;
+    }
+    activePlatforms.push(platform);
+  }
 
   try {
-    for (const platformName of config.platforms) {
-      const platform = getPlatform(platformName);
-      if (!platform) {
-        log.warn(`Unknown platform "${platformName}" — skipping.`);
-        continue;
-      }
-      const { name, targetDir } = platform;
+    if (syncSkills || syncAgents) {
+      for (const platform of activePlatforms) {
+        const { name, targetDir } = platform;
 
-      console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${targetDir}/)`)}`);
-      console.log();
-
-      for (const section of getSections(config)) {
-        const targetDirPath = path.join(cwd, targetDir, section.name);
-        const result = await syncSection({ section, targetDirPath, cwd, hashDB, dryRun, force });
+        console.log(`${styleText("cyan", "●")}  ${name}  ${styleText("dim", `(${targetDir}/)`)}`);
         console.log();
-        totalCopied  += result.copied;
-        totalSkipped += result.skipped;
-        totalFailed  += result.failed;
+
+        const allSections = getSections(config);
+        const sections = allSections.filter(
+          (s) => (s.name === "skills" && syncSkills) || (s.name === "agents" && syncAgents),
+        );
+
+        for (const section of sections) {
+          const targetDirPath = path.join(cwd, targetDir, section.name);
+          const result = await syncSection({ section, targetDirPath, cwd, hashDB, dryRun, force });
+          console.log();
+          totalCopied  += result.copied;
+          totalSkipped += result.skipped;
+          totalFailed  += result.failed;
+        }
       }
     }
   } finally {
     if (!dryRun) {
       await saveHashDB(hashDB);
+    }
+  }
+
+  // MCP sync (global, not per-project)
+  const mcpEntries = Object.entries(config.mcp ?? {});
+  if (syncMcp && mcpEntries.length > 0 && activePlatforms.length > 0) {
+    const serverNames = mcpEntries.map(([name]) => name);
+    if (dryRun) {
+      console.log(`${styleText("cyan", "●")}  mcp  ${styleText("dim", "(dry-run)")}`);
+      console.log();
+      for (const platform of activePlatforms) {
+        log.dim(`  ${displayPath(platform.mcpConfigPath)}  — ${serverNames.join(", ")}`);
+      }
+      console.log();
+    } else {
+      const results = await syncMCP(config.mcp, activePlatforms, false);
+      console.log(`${styleText("cyan", "●")}  mcp`);
+      console.log();
+      for (const result of results) {
+        const pathDisplay = styleText("dim", displayPath(result.configPath));
+        if (result.ok) {
+          console.log(`  ${styleText("green", "✓")}  ${serverNames.join(", ")}  ${pathDisplay}`);
+        } else {
+          console.log(`  ${styleText("red", "✗")}  ${result.platform}  ${pathDisplay}  — ${result.error}`);
+        }
+      }
+      console.log();
     }
   }
 
