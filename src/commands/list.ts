@@ -38,6 +38,13 @@ export async function list(): Promise<void> {
     for (const b of brokenLines) sectionLines.push(b);
   }
 
+  // MCP servers
+  const mcpEntries = Object.keys(config.mcp ?? {});
+  if (mcpEntries.length > 0) {
+    sectionLines.push(renderTree("mcp", mcpEntries));
+    total += mcpEntries.length;
+  }
+
   if (total === 0) {
     console.log();
     log.outro("No files resolved — run `cortex sync` after configuring cortex.toml.");
