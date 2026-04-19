@@ -45,7 +45,7 @@ mock.module(srcUrl("core/resolver.ts"), {
 });
 
 mock.module(srcUrl("utils/fs-utils.ts"), {
-  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock },
+  namedExports: { copyFileAtomic: copyFileAtomicMock, removeFile: removeFileMock, removeEmptyDirs: removeEmptyDirsMock, listMdFiles: listMdFilesMock, fileExists: fileExistsMock, displayPath: (p: string) => p },
 });
 
 mock.module(srcUrl("core/hash-db.ts"), {
@@ -169,7 +169,9 @@ describe("sync", () => {
 
     await sync();
 
-    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("failed")));
+    // copyFileAtomic was attempted but threw; sync should still complete and save the hash DB
+    assert.ok(copyFileAtomicMock.mock.callCount() > 0);
+    assert.equal(saveHashDBMock.mock.callCount(), 1);
   });
 
   it("skips dirty files without --force", async () => {

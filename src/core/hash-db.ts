@@ -12,14 +12,18 @@ export function normalizeKey(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
+/** Returns the MD5 hex digest of a buffer, used to detect file changes. */
 export function md5(data: Buffer): string {
   return createHash("md5").update(data).digest("hex");
 }
 
+/** Loads the hash DB from disk. Returns an empty object if missing or corrupt. */
 export async function loadHashDB(): Promise<HashDB> {
   try {
     const raw = await fs.readFile(DB_PATH, "utf8");
-    return JSON.parse(raw) as HashDB;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || Array.isArray(parsed) || parsed === null) return {};
+    return parsed as HashDB;
   } catch {
     return {};
   }
@@ -37,6 +41,7 @@ export async function isDirty(db: HashDB, destPath: string): Promise<boolean> {
   }
 }
 
+/** Persists the hash DB to disk atomically (temp + rename). */
 export async function saveHashDB(db: HashDB): Promise<void> {
   await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
   const data = JSON.stringify(db, null, 2) + "\n";

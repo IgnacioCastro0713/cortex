@@ -37,11 +37,18 @@ export async function readConfig(): Promise<CortexConfig> {
 }
 
 /**
- * Write a CortexConfig to ~/cortex.toml.
+ * Write a CortexConfig to ~/cortex.toml atomically (temp + rename).
  */
 export async function writeConfig(config: CortexConfig): Promise<void> {
   const content = stringify(config as unknown as Record<string, unknown>);
-  await fs.writeFile(CONFIG_PATH, content, "utf-8");
+  const tmp = CONFIG_PATH + ".tmp";
+  try {
+    await fs.writeFile(tmp, content, "utf-8");
+    await fs.rename(tmp, CONFIG_PATH);
+  } catch (err) {
+    await fs.unlink(tmp).catch(() => {});
+    throw err;
+  }
 }
 
 /**
@@ -57,6 +64,7 @@ export function defaultConfig(): CortexConfig {
   };
 }
 
+/** Returns the absolute path to cortex.toml. */
 export function getConfigPath(): string {
   return CONFIG_PATH;
 }

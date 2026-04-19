@@ -11,6 +11,7 @@ const readConfigOrExitMock = mock.fn<() => Promise<unknown>>();
 const removeFileMock = mock.fn(async () => {});
 const loadHashDBMock = mock.fn(async () => ({} as Record<string, string>));
 const saveHashDBMock = mock.fn(async () => {});
+const cleanMCPMock = mock.fn(async () => []);
 const logMock = {
   plain: mock.fn(),
   success: mock.fn(),
@@ -34,7 +35,7 @@ mock.module(srcUrl("core/resolver.ts"), {
 });
 
 mock.module(srcUrl("utils/fs-utils.ts"), {
-  namedExports: { removeFile: removeFileMock, removeEmptyDirs: mock.fn(async () => {}) },
+  namedExports: { removeFile: removeFileMock, removeEmptyDirs: mock.fn(async () => {}), displayPath: (p: string) => p },
 });
 
 mock.module(srcUrl("core/hash-db.ts"), {
@@ -48,7 +49,7 @@ mock.module(srcUrl("core/hash-db.ts"), {
 mock.module(srcUrl("utils/log.ts"), { namedExports: { log: logMock } });
 mock.module(srcUrl("core/mcp.ts"), {
   namedExports: {
-    displayPath: (p: string) => p,
+    cleanMCP: cleanMCPMock,
   },
 });
 mock.module(srcUrl("core/constants.ts"), {
@@ -64,6 +65,7 @@ beforeEach(() => {
   removeFileMock.mock.resetCalls();
   saveHashDBMock.mock.resetCalls();
   loadHashDBMock.mock.resetCalls();
+  cleanMCPMock.mock.resetCalls();
   for (const fn of Object.values(logMock)) fn.mock.resetCalls();
 });
 
@@ -82,7 +84,7 @@ describe("clean", () => {
       [agentsFile]: "def",
     }));
 
-    await clean();
+    await clean({ force: true });
 
     assert.equal(removeFileMock.mock.callCount(), 2);
     assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("Removed 1")));
@@ -99,7 +101,7 @@ describe("clean", () => {
 
     await clean();
 
-    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("No managed files")));
+    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("Nothing managed")));
   });
 
   it("cleans across multiple platforms", async () => {
@@ -113,7 +115,7 @@ describe("clean", () => {
     const f2 = "/mock/home/.gemini/skills/a.md";
     loadHashDBMock.mock.mockImplementation(async () => ({ [f1]: "x", [f2]: "y" }));
 
-    await clean();
+    await clean({ force: true });
 
     assert.equal(removeFileMock.mock.callCount(), 2);
     assert.equal(saveHashDBMock.mock.callCount(), 1);

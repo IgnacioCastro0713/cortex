@@ -2,6 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
+/** Returns the path relative to home for display purposes. */
+export function displayPath(p: string): string {
+  const home = os.homedir();
+  return p.startsWith(home) ? "~" + p.slice(home.length).replace(/\\/g, "/") : p;
+}
+
 /** Resolves path prefixes: ~ (home), @alias (deps) */
 export function expandPath(raw: string, depsDir: string): string {
   if (raw.startsWith("~")) {
@@ -46,10 +52,12 @@ export async function resolveGlob(pattern: string): Promise<string[]> {
   return results;
 }
 
+/** Creates a directory and all missing ancestors. */
 export async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+/** Returns true if the given directory contains a .git folder. */
 export async function isGitRepo(dir: string): Promise<boolean> {
   try {
     await fs.access(path.join(dir, ".git"));

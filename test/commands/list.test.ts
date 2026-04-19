@@ -69,7 +69,7 @@ describe("list", () => {
     await list();
 
     assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("planning.md")));
-    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("1 file(s)")));
+    assert.ok(logMock.success.mock.calls.some((c) => String(c.arguments[0]).includes("1 skill")));
   });
 
   it("flags broken source paths", async () => {
