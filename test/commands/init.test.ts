@@ -20,6 +20,7 @@ const getConfigPathMock = mock.fn(() => "/home/user/.cortex/cortex.toml");
 const logMock = {
   plain: mock.fn(),
   success: mock.fn(),
+  skip: mock.fn(),
   warn: mock.fn(),
   error: mock.fn(),
   info: mock.fn(),
@@ -30,7 +31,7 @@ const logMock = {
 };
 
 mock.module(srcUrl("utils/fs-utils.ts"), {
-  namedExports: { ensureDir: ensureDirMock },
+  namedExports: { ensureDir: ensureDirMock, displayPath: (p: string) => p },
 });
 
 mock.module(srcUrl("core/parser.ts"), {
@@ -60,9 +61,8 @@ beforeEach(() => {
   ensureDirMock.mock.resetCalls();
   readConfigMock.mock.resetCalls();
   writeConfigMock.mock.resetCalls();
-  logMock.success.mock.resetCalls();
-  logMock.info.mock.resetCalls();
-  logMock.dim.mock.resetCalls();
+  defaultConfigMock.mock.resetCalls();
+  for (const fn of Object.values(logMock)) fn.mock.resetCalls();
 });
 
 describe("init", () => {
@@ -84,7 +84,7 @@ describe("init", () => {
     await init();
 
     assert.equal(writeConfigMock.mock.callCount(), 0);
-    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("already exists")));
+    assert.ok(logMock.skip.mock.calls.some((c) => String(c.arguments[0]).includes("already exists")));
   });
 
   it("writes default config when no config exists", async () => {

@@ -70,7 +70,7 @@ async function main(): Promise<void> {
       await list();
       break;
     case "clean":
-      await clean();
+      await clean({ force: values.force });
       break;
     default:
       console.error(`Unknown command: ${command}\n`);

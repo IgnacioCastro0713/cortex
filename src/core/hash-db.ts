@@ -19,7 +19,9 @@ export function md5(data: Buffer): string {
 export async function loadHashDB(): Promise<HashDB> {
   try {
     const raw = await fs.readFile(DB_PATH, "utf8");
-    return JSON.parse(raw) as HashDB;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || Array.isArray(parsed) || parsed === null) return {};
+    return parsed as HashDB;
   } catch {
     return {};
   }

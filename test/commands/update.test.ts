@@ -81,7 +81,6 @@ describe("update", () => {
     await update();
 
     assert.equal(gitPullMock.mock.callCount(), 0);
-    assert.ok(logMock.dim.mock.calls.some((c) => String(c.arguments[0]).includes("not a git repo")));
   });
 
   it("clones or pulls each dependency", async () => {

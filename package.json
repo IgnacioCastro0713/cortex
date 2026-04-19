@@ -14,7 +14,7 @@
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "test": "node --experimental-test-module-mocks --test test/**/*.test.ts test/commands/**/*.test.ts"
+    "test": "node --experimental-test-module-mocks --test 'test/**/*.test.ts'"
   },
   "keywords": [
     "cli",

@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { styleText } from "node:util";
-import { copyFileAtomic, removeFile, removeEmptyDirs, listMdFiles, fileExists } from "../utils/fs-utils.ts";
+import { copyFileAtomic, removeFile, removeEmptyDirs, listMdFiles, fileExists, displayPath } from "../utils/fs-utils.ts";
 import { loadHashDB, saveHashDB, md5, isDirty, normalizeKey, type HashDB } from "../core/hash-db.ts";
 import { log } from "../utils/log.ts";
 import { getPlatform } from "../core/constants.ts";
@@ -9,7 +9,7 @@ import type { Platform } from "../core/constants.ts";
 import { resolveEntries, deduplicateEntries, getSections, readConfigOrExit } from "../core/resolver.ts";
 import type { ResolvedEntry } from "../core/resolver.ts";
 import { renderTree } from "../utils/tree.ts";
-import { syncMCP, displayPath } from "../core/mcp.ts";
+import { syncMCP } from "../core/mcp.ts";
 import type { McpServer } from "../core/parser.ts";
 
 export interface SyncOptions {
@@ -245,7 +245,9 @@ function renderSyncSummary(totals: SyncResult, dryRun: boolean): void {
     if (totals.skipped) hints.push(styleText("yellow", `${totals.skipped} skipped`));
     if (totals.failed)  hints.push(styleText("red",    `${totals.failed} failed`));
     const suffix = hints.length ? `  ${styleText("dim", "(")}${hints.join(", ")}${styleText("dim", ")")}` : "";
-    console.log(` ${styleText("green", "✓")}  Sync complete${suffix}`);
+    const icon  = totals.failed > 0 ? styleText("red",   "✗") : styleText("green", "✓");
+    const label = totals.failed > 0 ? "Sync completed with errors" : "Sync complete";
+    console.log(` ${icon}  ${label}${suffix}`);
   }
 }
 

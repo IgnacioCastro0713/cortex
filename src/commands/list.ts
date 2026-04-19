@@ -35,7 +35,7 @@ export async function list(): Promise<void> {
 
     if (fileNames.length > 0) sectionLines.push(renderTree(section.name, fileNames));
     for (const b of brokenLines) sectionLines.push(b);
-    counts.push({ name: section.name, count: entries.length });
+    counts.push({ name: section.name, count: fileNames.length });
   }
 
   // MCP servers

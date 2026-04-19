@@ -13,7 +13,11 @@ export async function resolveEntries(patterns: string[]): Promise<ResolvedEntry[
   const entries: ResolvedEntry[] = [];
   for (const raw of patterns) {
     const expanded = expandPath(raw, DEPS_DIR);
+    const hasWildcard = expanded.includes("*");
     const files = await resolveGlob(expanded);
+    if (!hasWildcard && files.length === 0) {
+      log.warn(`Path not found: ${raw}`);
+    }
     for (const source of files) {
       entries.push({ source, fileName: path.basename(source) });
     }
