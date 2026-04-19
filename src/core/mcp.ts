@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 import { expandPath } from "../utils/fs-utils.ts";
 import { DEPS_DIR } from "./constants.ts";
 import type { McpServer } from "./parser.ts";
@@ -79,8 +78,4 @@ export async function syncMCP(
   return results;
 }
 
-/** Returns the path relative to home for display purposes. */
-export function displayPath(p: string): string {
-  const home = os.homedir();
-  return p.startsWith(home) ? "~" + p.slice(home.length).replace(/\\/g, "/") : p;
-}
+export { displayPath } from "../utils/fs-utils.ts";

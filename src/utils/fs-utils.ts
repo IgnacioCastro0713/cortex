@@ -2,6 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
+/** Returns the path relative to home for display purposes. */
+export function displayPath(p: string): string {
+  const home = os.homedir();
+  return p.startsWith(home) ? "~" + p.slice(home.length).replace(/\\/g, "/") : p;
+}
+
 /** Resolves path prefixes: ~ (home), @alias (deps) */
 export function expandPath(raw: string, depsDir: string): string {
   if (raw.startsWith("~")) {
