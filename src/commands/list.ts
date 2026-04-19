@@ -8,7 +8,7 @@ export async function list(): Promise<void> {
 
   const config = await readConfigOrExit();
   const sectionLines: string[] = [];
-  let total = 0;
+  const counts: { name: string; count: number }[] = [];
 
   for (const section of getSections(config)) {
     const entries = await resolveEntries(section.paths);
@@ -31,26 +31,27 @@ export async function list(): Promise<void> {
       } else {
         fileNames.push(relDest);
       }
-      total++;
     }
 
     if (fileNames.length > 0) sectionLines.push(renderTree(section.name, fileNames));
     for (const b of brokenLines) sectionLines.push(b);
+    counts.push({ name: section.name, count: entries.length });
   }
 
   // MCP servers
   const mcpEntries = Object.keys(config.mcp ?? {});
   if (mcpEntries.length > 0) {
     sectionLines.push(renderTree("mcp", mcpEntries));
-    total += mcpEntries.length;
+    counts.push({ name: "mcp", count: mcpEntries.length });
   }
 
-  if (total === 0) {
+  if (counts.length === 0) {
     console.log();
     log.outro("No files resolved — run `cortex sync` after configuring cortex.toml.");
   } else {
     log.dim(sectionLines.join("\n\n"));
     console.log();
-    log.success(`${total} file(s) listed.`);
+    const summary = counts.map(({ name, count }) => `${count} ${count === 1 ? name.replace(/s$/, "") : name}`).join("  ·  ");
+    log.success(summary);
   }
 }

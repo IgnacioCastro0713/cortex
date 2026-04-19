@@ -4,6 +4,7 @@ const I = "  "; // indent
 
 export const log = {
   success: (msg: string) => console.log(`${I}${styleText("green",  "✓")}  ${msg}`),
+  skip:    (msg: string) => console.log(`${I}${styleText("dim",    "–")}  ${styleText("dim", msg)}`),
   error:   (msg: string) => console.log(`${I}${styleText("red",    "✗")}  ${msg}`),
   warn:    (msg: string) => console.log(`${I}${styleText("yellow", "⚠")}  ${msg}`),
   info:    (msg: string) => console.log(`${I}${styleText("cyan",   "●")}  ${msg}`),

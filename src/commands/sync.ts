@@ -100,7 +100,13 @@ async function copyEntries(entries: ResolvedEntry[], targetDirPath: string, hash
   return { copied, skipped, failed };
 }
 
-/** Renders a colored tree of copied, skipped, and failed files for a section. */
+function entryTopName(p: string): string {
+  const normalized = p.replace(/\\/g, "/");
+  const slash = normalized.indexOf("/");
+  return slash === -1 ? normalized.replace(/\.md$/, "") : normalized.slice(0, slash);
+}
+
+/** Renders the section tree collapsed to skill/agent names, expanding only warnings and failures. */
 function renderSectionResult(sectionName: string, { copied, skipped, failed }: CopyResult): void {
   const allCount = copied.length + skipped.length + failed.length;
 
@@ -109,19 +115,43 @@ function renderSectionResult(sectionName: string, { copied, skipped, failed }: C
     return;
   }
 
-  const parts: string[] = [`${copied.length} files`];
-  if (skipped.length) parts.push(`${skipped.length} skipped`);
-  if (failed.length) parts.push(`${failed.length} failed`);
+  const issueNames = new Set<string>([
+    ...skipped.map(({ path: p }) => entryTopName(p)),
+    ...failed.map(({ path: p }) => entryTopName(p)),
+  ]);
 
-  const treeEntries = [
-    ...copied,
-    ...skipped.map(({ path: p, reason }) => p.replace(/([^/]+)$/, `⚠ $1 (${reason})`)),
-    ...failed.map(({ path: p, reason })  => p.replace(/([^/]+)$/, `✗ $1 (${reason})`)),
-  ];
+  const treeEntries: string[] = [];
 
-  log.success(`${sectionName}/  (${parts.join(", ")})`);
+  const okNames = new Set<string>();
+  for (const p of copied) {
+    const name = entryTopName(p);
+    if (!issueNames.has(name)) okNames.add(name);
+  }
+  for (const name of okNames) treeEntries.push(name);
+
+  for (const { path: p, reason } of skipped) {
+    const nested = p.replace(/\\/g, "/").includes("/");
+    treeEntries.push(nested
+      ? `${entryTopName(p)}/⚠ ${path.basename(p)}  (${reason})`
+      : `⚠ ${entryTopName(p)}  (${reason})`
+    );
+  }
+  for (const { path: p, reason } of failed) {
+    const nested = p.replace(/\\/g, "/").includes("/");
+    treeEntries.push(nested
+      ? `${entryTopName(p)}/✗ ${path.basename(p)}  (${reason})`
+      : `✗ ${entryTopName(p)}  (${reason})`
+    );
+  }
+
+  const parts: string[] = [`${copied.length} copied`];
+  if (skipped.length) parts.push(styleText("yellow", `${skipped.length} skipped`));
+  if (failed.length)  parts.push(styleText("red",    `${failed.length} failed`));
+
   const I = "  ";
-  for (const line of renderTree(sectionName, treeEntries).split("\n")) {
+  const [header, ...rest] = renderTree(sectionName, treeEntries).split("\n");
+  console.log(`${I}${styleText("dim", header!)}  ${styleText("dim", `(${parts.join(", ")})`)}`)
+  for (const line of rest) {
     if (line.includes("⚠ ")) {
       console.log(`${I}${styleText("yellow", line)}`);
     } else if (line.includes("✗ ")) {
@@ -211,10 +241,11 @@ function renderSyncSummary(totals: SyncResult, dryRun: boolean): void {
   if (dryRun) {
     log.outro("Preview complete.");
   } else {
-    const parts: string[] = [`${totals.copied} file(s) copied`];
-    if (totals.skipped) parts.push(styleText("yellow", `${totals.skipped} skipped`));
-    if (totals.failed)  parts.push(styleText("red",    `${totals.failed} failed`));
-    log.success(`Sync complete — ${parts.join(", ")}.`);
+    const hints: string[] = [];
+    if (totals.skipped) hints.push(styleText("yellow", `${totals.skipped} skipped`));
+    if (totals.failed)  hints.push(styleText("red",    `${totals.failed} failed`));
+    const suffix = hints.length ? `  ${styleText("dim", "(")}${hints.join(", ")}${styleText("dim", ")")}` : "";
+    console.log(` ${styleText("green", "✓")}  Sync complete${suffix}`);
   }
 }
 
