@@ -100,6 +100,7 @@ async function copyEntries(entries: ResolvedEntry[], targetDirPath: string, hash
   return { copied, skipped, failed };
 }
 
+/** Returns the top-level skill/agent name from a file path, stripping the .md extension for flat entries. */
 function entryTopName(p: string): string {
   const normalized = p.replace(/\\/g, "/");
   const slash = normalized.indexOf("/");
@@ -251,6 +252,33 @@ function renderSyncSummary(totals: SyncResult, dryRun: boolean): void {
   }
 }
 
+/** Syncs skills and agents for all active platforms. Returns the aggregated copy/skip/fail totals. */
+async function syncKnowledgeFiles(
+  activePlatforms: Platform[],
+  config: Awaited<ReturnType<typeof readConfigOrExit>>,
+  hashDB: HashDB,
+  dryRun: boolean,
+  force: boolean,
+): Promise<SyncResult> {
+  const totals: SyncResult = { copied: 0, skipped: 0, failed: 0 };
+
+  for (const platform of activePlatforms) {
+    console.log(`${styleText("cyan", "●")}  ${platform.name}  ${styleText("dim", `(${displayPath(platform.targetDir)}/)`)}`);
+    console.log();
+
+    for (const section of getSections(config)) {
+      const targetDirPath = path.join(platform.targetDir, section.name);
+      const result = await syncSection({ section, targetDirPath, hashDB, dryRun, force });
+      console.log();
+      totals.copied  += result.copied;
+      totals.skipped += result.skipped;
+      totals.failed  += result.failed;
+    }
+  }
+
+  return totals;
+}
+
 /** Main sync command — copies knowledge files and MCP configs into global platform directories. */
 export async function sync(options: SyncOptions = {}): Promise<void> {
   log.header("sync");
@@ -270,28 +298,15 @@ export async function sync(options: SyncOptions = {}): Promise<void> {
   }
 
   const hashDB = await loadHashDB();
-  const totals: SyncResult = { copied: 0, skipped: 0, failed: 0 };
+  let totals: SyncResult = { copied: 0, skipped: 0, failed: 0 };
 
   try {
-    for (const platform of activePlatforms) {
-      console.log(`${styleText("cyan", "●")}  ${platform.name}  ${styleText("dim", `(${displayPath(platform.targetDir)}/)`)}`);
-      console.log();
-
-      for (const section of getSections(config)) {
-        const targetDirPath = path.join(platform.targetDir, section.name);
-        const result = await syncSection({ section, targetDirPath, hashDB, dryRun, force });
-        console.log();
-        totals.copied  += result.copied;
-        totals.skipped += result.skipped;
-        totals.failed  += result.failed;
-      }
-    }
+    totals = await syncKnowledgeFiles(activePlatforms, config, hashDB, dryRun, force);
   } finally {
     if (!dryRun) await saveHashDB(hashDB);
   }
 
-  const mcpEntries = Object.entries(config.mcp ?? {});
-  if (mcpEntries.length > 0) {
+  if (Object.keys(config.mcp ?? {}).length > 0) {
     await renderMcpResults(config.mcp, activePlatforms, dryRun);
   }
 

@@ -64,6 +64,7 @@ export function defaultConfig(): CortexConfig {
   };
 }
 
+/** Returns the absolute path to cortex.toml. */
 export function getConfigPath(): string {
   return CONFIG_PATH;
 }

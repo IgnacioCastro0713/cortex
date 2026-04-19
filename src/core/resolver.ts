@@ -9,6 +9,7 @@ export interface ResolvedEntry {
   fileName: string;
 }
 
+/** Expands glob patterns into resolved file entries. Warns on non-wildcard paths that match nothing. */
 export async function resolveEntries(patterns: string[]): Promise<ResolvedEntry[]> {
   const entries: ResolvedEntry[] = [];
   for (const raw of patterns) {
@@ -25,6 +26,7 @@ export async function resolveEntries(patterns: string[]): Promise<ResolvedEntry[
   return entries;
 }
 
+/** Deduplicates entries by fileName, keeping the last occurrence and warning on conflicts. */
 export function deduplicateEntries(entries: ResolvedEntry[]): ResolvedEntry[] {
   const seen = new Map<string, ResolvedEntry>();
   for (const entry of entries) {
@@ -36,6 +38,7 @@ export function deduplicateEntries(entries: ResolvedEntry[]): ResolvedEntry[] {
   return [...seen.values()];
 }
 
+/** Returns the ordered list of sections (skills, agents) derived from the config. */
 export function getSections(config: { skills: { paths: string[] }; agents: { paths: string[] } }) {
   return [
     { name: "skills", paths: config.skills.paths },
@@ -43,6 +46,7 @@ export function getSections(config: { skills: { paths: string[] }; agents: { pat
   ] as const;
 }
 
+/** Reads cortex.toml or exits with a user-friendly error if it doesn't exist. */
 export async function readConfigOrExit() {
   try {
     return await readConfig();

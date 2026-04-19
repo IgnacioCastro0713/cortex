@@ -139,7 +139,7 @@ graph TB
 | `cortex init` | Create `~/.cortex/cortex.toml` and the `~/.cortex/ai/` folder structure |
 | `cortex sync` | Copy knowledge files to global platform directories and sync MCP configs |
 | `cortex list` | Show the map of knowledge sources configured in `cortex.toml` |
-| `cortex clean` | Remove all cortex-managed files from platform directories |
+| `cortex clean` | Remove all cortex-managed files and MCP entries from platform directories. Asks for confirmation unless `--force` is passed. Also cleans files from platforms removed from the config. |
 | `cortex update` | Pull latest changes for `~/.cortex/ai/` and all deps |
 
 ### Options
@@ -147,7 +147,7 @@ graph TB
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--dry-run` | `-d` | Preview `sync` without making any changes |
-| `--force` | `-f` | Overwrite locally modified files during `sync` |
+| `--force` | `-f` | `sync`: overwrite locally modified files · `clean`: skip confirmation prompt |
 | `--version` | `-v` | Print the current version and exit |
 | `--help` | `-h` | Show the help message |
 

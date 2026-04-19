@@ -52,10 +52,12 @@ export async function resolveGlob(pattern: string): Promise<string[]> {
   return results;
 }
 
+/** Creates a directory and all missing ancestors. */
 export async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+/** Returns true if the given directory contains a .git folder. */
 export async function isGitRepo(dir: string): Promise<boolean> {
   try {
     await fs.access(path.join(dir, ".git"));
