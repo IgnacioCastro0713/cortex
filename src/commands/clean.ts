@@ -3,7 +3,7 @@ import readline from "node:readline";
 import { styleText } from "node:util";
 import { removeFile, removeEmptyDirs, displayPath } from "../utils/fs-utils.ts";
 import { log } from "../utils/log.ts";
-import { getPlatform, PLATFORMS } from "../core/constants.ts";
+import { resolvePlatforms, PLATFORMS } from "../core/constants.ts";
 import type { Platform } from "../core/constants.ts";
 import { getSections, readConfigOrExit } from "../core/resolver.ts";
 import { loadHashDB, saveHashDB, normalizeKey } from "../core/hash-db.ts";
@@ -71,9 +71,9 @@ async function removeFilesForPlatform(platform: Platform, sections: ReturnType<t
 }
 
 /** Removes hash DB entries whose paths don't match any known platform, guarding against DB corruption. */
-function sweepOrphanedEntries(hashDB: HashDB, sections: ReturnType<typeof getSections>): void {
+function sweepOrphanedEntries(hashDB: HashDB, sections: ReturnType<typeof getSections>, extraPlatforms: Platform[] = []): void {
   const allKnownPrefixes = new Set<string>();
-  for (const platform of PLATFORMS) {
+  for (const platform of [...PLATFORMS, ...extraPlatforms]) {
     for (const section of sections) {
       allKnownPrefixes.add(normalizeKey(path.join(platform.targetDir, section.name)) + "/");
     }
@@ -92,9 +92,7 @@ export async function clean(options: CleanOptions = {}): Promise<void> {
   const hashDB = await loadHashDB();
   const sections = getSections(config);
 
-  const activePlatforms = config.platforms
-    .map((n) => getPlatform(n))
-    .filter((p): p is NonNullable<typeof p> => p !== undefined);
+  const activePlatforms = resolvePlatforms(config.platforms, config.platform, (msg) => log.warn(msg));
 
   const activePlatformDirs = new Set(activePlatforms.map((p) => p.targetDir));
   const inactivePlatforms = PLATFORMS.filter((p) => !activePlatformDirs.has(p.targetDir));
@@ -148,7 +146,7 @@ export async function clean(options: CleanOptions = {}): Promise<void> {
     }
   }
 
-  sweepOrphanedEntries(hashDB, sections);
+  sweepOrphanedEntries(hashDB, sections, activePlatforms);
   await saveHashDB(hashDB);
 
   console.log();

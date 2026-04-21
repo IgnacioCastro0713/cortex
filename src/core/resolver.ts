@@ -1,5 +1,6 @@
+import fs from "node:fs/promises";
 import path from "node:path";
-import { expandPath, resolveGlob } from "../utils/fs-utils.ts";
+import { expandPath, resolveGlob, listMdFiles } from "../utils/fs-utils.ts";
 import { readConfig } from "./parser.ts";
 import { log } from "../utils/log.ts";
 import { DEPS_DIR } from "./constants.ts";
@@ -11,19 +12,18 @@ export interface ResolvedEntry {
 
 /** Expands glob patterns into resolved file entries. Warns on non-wildcard paths that match nothing. */
 export async function resolveEntries(patterns: string[]): Promise<ResolvedEntry[]> {
-  const entries: ResolvedEntry[] = [];
-  for (const raw of patterns) {
+  const batches = await Promise.all(patterns.map(async (raw) => {
     const expanded = expandPath(raw, DEPS_DIR);
     const hasWildcard = expanded.includes("*");
+    log.verbose(`glob: ${raw}  →  ${expanded}`);
     const files = await resolveGlob(expanded);
     if (!hasWildcard && files.length === 0) {
       log.warn(`Path not found: ${raw}`);
     }
-    for (const source of files) {
-      entries.push({ source, fileName: path.basename(source) });
-    }
-  }
-  return entries;
+    log.verbose(`  matched ${files.length} file(s)`);
+    return files.map((source) => ({ source, fileName: path.basename(source) }));
+  }));
+  return batches.flat();
 }
 
 /** Deduplicates entries by fileName, keeping the last occurrence and warning on conflicts. */
@@ -44,6 +44,25 @@ export function getSections(config: { skills: { paths: string[] }; agents: { pat
     { name: "skills", paths: config.skills.paths },
     { name: "agents", paths: config.agents.paths },
   ] as const;
+}
+
+/** Expands directory entries into individual .md file entries. */
+export async function expandEntries(entries: ResolvedEntry[]): Promise<ResolvedEntry[]> {
+  const result: ResolvedEntry[] = [];
+  for (const entry of entries) {
+    const stat = await fs.stat(entry.source).catch(() => null);
+    if (stat?.isDirectory()) {
+      const files = await listMdFiles(entry.source);
+      const dirName = path.basename(entry.source);
+      for (const file of files) {
+        const rel = path.relative(entry.source, file);
+        result.push({ source: file, fileName: path.join(dirName, rel) });
+      }
+    } else {
+      result.push(entry);
+    }
+  }
+  return result;
 }
 
 /** Reads cortex.toml or exits with a user-friendly error if it doesn't exist. */

@@ -10,12 +10,19 @@ export interface McpServer {
   cwd?: string;
 }
 
+export interface CustomPlatformDef {
+  targetDir: string;
+  mcpConfigPath: string;
+  mcpKey: string;
+}
+
 export interface CortexConfig {
   platforms: string[];
   deps: Record<string, string>;
   skills: { paths: string[] };
   agents: { paths: string[] };
   mcp: Record<string, McpServer>;
+  platform?: Record<string, CustomPlatformDef>;
 }
 
 const CONFIG_PATH = path.join(CORTEX_DIR, "cortex.toml");
@@ -33,6 +40,7 @@ export async function readConfig(): Promise<CortexConfig> {
     skills: (data.skills as { paths: string[] }) ?? { paths: [] },
     agents: (data.agents as { paths: string[] }) ?? { paths: [] },
     mcp: (data.mcp as Record<string, McpServer>) ?? {},
+    platform: (data.platform as Record<string, CustomPlatformDef>) ?? undefined,
   };
 }
 

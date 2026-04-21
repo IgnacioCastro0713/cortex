@@ -52,10 +52,16 @@ mock.module(srcUrl("core/mcp.ts"), {
     cleanMCP: cleanMCPMock,
   },
 });
+const mockPlatformMap: Record<string, { name: string; targetDir: string; mcpConfigPath: string; mcpKey: string }> = {
+  copilot: { name: "copilot", targetDir: "/mock/home/.github", mcpConfigPath: "/mock/home/.github/mcp.json", mcpKey: "mcpServers" },
+  gemini:  { name: "gemini",  targetDir: "/mock/home/.gemini", mcpConfigPath: "/mock/home/.gemini/settings.json", mcpKey: "mcpServers" },
+};
+
 mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
-    PLATFORMS: [{ name: "copilot", targetDir: "/mock/home/.github" }, { name: "gemini", targetDir: "/mock/home/.gemini" }],
-    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: "/mock/home/.github" }, gemini: { name: "gemini", targetDir: "/mock/home/.gemini" } })[name],
+    PLATFORMS: Object.values(mockPlatformMap),
+    getPlatform: (name: string) => mockPlatformMap[name],
+    resolvePlatforms: (names: string[]) => names.map((n) => mockPlatformMap[n]).filter(Boolean),
   },
 });
 

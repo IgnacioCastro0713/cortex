@@ -1,12 +1,11 @@
 import path from "node:path";
-import fs from "node:fs/promises";
 import { styleText } from "node:util";
-import { copyFileAtomic, removeFile, removeEmptyDirs, listMdFiles, fileExists, displayPath } from "../utils/fs-utils.ts";
+import { copyFileAtomic, removeFile, removeEmptyDirs, fileExists, displayPath } from "../utils/fs-utils.ts";
 import { loadHashDB, saveHashDB, md5, isDirty, normalizeKey, type HashDB } from "../core/hash-db.ts";
 import { log } from "../utils/log.ts";
-import { getPlatform } from "../core/constants.ts";
+import { resolvePlatforms } from "../core/constants.ts";
 import type { Platform } from "../core/constants.ts";
-import { resolveEntries, deduplicateEntries, getSections, readConfigOrExit } from "../core/resolver.ts";
+import { resolveEntries, deduplicateEntries, expandEntries, getSections, readConfigOrExit } from "../core/resolver.ts";
 import type { ResolvedEntry } from "../core/resolver.ts";
 import { renderTree } from "../utils/tree.ts";
 import { syncMCP } from "../core/mcp.ts";
@@ -21,25 +20,6 @@ interface SyncResult {
   copied: number;
   skipped: number;
   failed: number;
-}
-
-/** Expands directory entries into individual .md file entries. */
-async function expandEntries(entries: ResolvedEntry[]): Promise<ResolvedEntry[]> {
-  const result: ResolvedEntry[] = [];
-  for (const entry of entries) {
-    const stat = await fs.stat(entry.source).catch(() => null);
-    if (stat?.isDirectory()) {
-      const files = await listMdFiles(entry.source);
-      const dirName = path.basename(entry.source);
-      for (const file of files) {
-        const rel = path.relative(entry.source, file);
-        result.push({ source: file, fileName: path.join(dirName, rel) });
-      }
-    } else {
-      result.push(entry);
-    }
-  }
-  return result;
 }
 
 /** Removes files from the target directory that are no longer in the resolved entries. */
@@ -69,31 +49,47 @@ interface CopyResult {
 
 /** Copies resolved entries to the target directory, skipping dirty or unmanaged files unless forced. */
 async function copyEntries(entries: ResolvedEntry[], targetDirPath: string, hashDB: HashDB, force: boolean): Promise<CopyResult> {
-  const copied: string[] = [];
-  const skipped: TaggedEntry[] = [];
-  const failed: TaggedEntry[] = [];
+  type EntryOutcome =
+    | { kind: "copied"; rel: string; key: string; hash: string }
+    | { kind: "skipped"; rel: string; reason: string }
+    | { kind: "failed"; rel: string; reason: string };
 
-  for (const { source, fileName } of entries) {
+  const outcomes = await Promise.all(entries.map(async ({ source, fileName }): Promise<EntryOutcome> => {
     const destPath = path.join(targetDirPath, fileName);
     const relDest = fileName.replace(/\\/g, "/");
+    log.verbose(`copy: ${source}  →  ${displayPath(destPath)}`);
     try {
       const isManaged = normalizeKey(destPath) in hashDB;
       const destExists = await fileExists(destPath);
 
       if (!force && destExists && !isManaged) {
-        skipped.push({ path: relDest, reason: "unmanaged" });
-        continue;
+        log.verbose(`  skip: unmanaged file at destination`);
+        return { kind: "skipped", rel: relDest, reason: "unmanaged" };
       }
       if (!force && await isDirty(hashDB, destPath)) {
-        skipped.push({ path: relDest, reason: "locally modified" });
-        continue;
+        log.verbose(`  skip: locally modified (hash mismatch)`);
+        return { kind: "skipped", rel: relDest, reason: "locally modified" };
       }
       const data = await copyFileAtomic(source, destPath);
-      hashDB[normalizeKey(destPath)] = md5(data);
-      copied.push(relDest);
+      return { kind: "copied", rel: relDest, key: normalizeKey(destPath), hash: md5(data) };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      failed.push({ path: relDest, reason: msg });
+      return { kind: "failed", rel: relDest, reason: msg };
+    }
+  }));
+
+  const copied: string[] = [];
+  const skipped: TaggedEntry[] = [];
+  const failed: TaggedEntry[] = [];
+
+  for (const outcome of outcomes) {
+    if (outcome.kind === "copied") {
+      hashDB[outcome.key] = outcome.hash;
+      copied.push(outcome.rel);
+    } else if (outcome.kind === "skipped") {
+      skipped.push({ path: outcome.rel, reason: outcome.reason });
+    } else {
+      failed.push({ path: outcome.rel, reason: outcome.reason });
     }
   }
 
@@ -165,17 +161,15 @@ function renderSectionResult(sectionName: string, { copied, skipped, failed }: C
 
 interface SyncSectionOptions {
   section: { name: string; paths: string[] };
+  entries: ResolvedEntry[];
   targetDirPath: string;
   hashDB: HashDB;
   dryRun: boolean;
   force: boolean;
 }
 
-/** Resolves, deduplicates, and syncs a single section (skills or agents) to a platform directory. */
-async function syncSection({ section, targetDirPath, hashDB, dryRun, force }: SyncSectionOptions): Promise<SyncResult> {
-  const raw = await resolveEntries(section.paths);
-  const entries = deduplicateEntries(await expandEntries(raw));
-
+/** Syncs pre-resolved entries for a single section to a platform target directory. */
+async function syncSection({ section, entries, targetDirPath, hashDB, dryRun, force }: SyncSectionOptions): Promise<SyncResult> {
   if (!dryRun) await removeStaleFiles(entries, targetDirPath, hashDB);
 
   if (entries.length === 0) {
@@ -194,19 +188,6 @@ async function syncSection({ section, targetDirPath, hashDB, dryRun, force }: Sy
   return { copied: result.copied.length, skipped: result.skipped.length, failed: result.failed.length };
 }
 
-/** Maps platform names from config to Platform objects, warning on unknown names. */
-function resolveActivePlatforms(platformNames: string[]): Platform[] {
-  const platforms: Platform[] = [];
-  for (const name of platformNames) {
-    const platform = getPlatform(name);
-    if (!platform) {
-      log.warn(`Unknown platform "${name}" — skipping.`);
-      continue;
-    }
-    platforms.push(platform);
-  }
-  return platforms;
-}
 
 /** Syncs MCP server configs into each platform's config file and prints results. */
 async function renderMcpResults(mcp: Record<string, McpServer>, platforms: Platform[], dryRun: boolean): Promise<void> {
@@ -261,14 +242,24 @@ async function syncKnowledgeFiles(
   force: boolean,
 ): Promise<SyncResult> {
   const totals: SyncResult = { copied: 0, skipped: 0, failed: 0 };
+  const sections = getSections(config);
+
+  // Resolve and expand entries once — same source paths apply to every platform
+  const resolvedSections = await Promise.all(
+    sections.map(async (section) => {
+      const raw = await resolveEntries(section.paths);
+      const entries = deduplicateEntries(await expandEntries(raw));
+      return { section, entries };
+    }),
+  );
 
   for (const platform of activePlatforms) {
     console.log(`${styleText("cyan", "●")}  ${platform.name}  ${styleText("dim", `(${displayPath(platform.targetDir)}/)`)}`);
     console.log();
 
-    for (const section of getSections(config)) {
+    for (const { section, entries } of resolvedSections) {
       const targetDirPath = path.join(platform.targetDir, section.name);
-      const result = await syncSection({ section, targetDirPath, hashDB, dryRun, force });
+      const result = await syncSection({ section, entries, targetDirPath, hashDB, dryRun, force });
       console.log();
       totals.copied  += result.copied;
       totals.skipped += result.skipped;
@@ -289,7 +280,7 @@ export async function sync(options: SyncOptions = {}): Promise<void> {
   if (dryRun) log.warn("dry-run — no changes will be made");
 
   const config = await readConfigOrExit();
-  const activePlatforms = resolveActivePlatforms(config.platforms);
+  const activePlatforms = resolvePlatforms(config.platforms, config.platform, (msg) => log.warn(msg));
 
   if (activePlatforms.length === 0) {
     log.warn("No platforms configured. Add platforms in cortex.toml.");

@@ -36,16 +36,12 @@ export async function syncMCP(
     resolved[name] = resolveServer(server);
   }
 
-  const results: McpSyncResult[] = [];
+  if (dryRun) {
+    return platforms.map((platform) => ({ platform: platform.name, configPath: platform.mcpConfigPath, ok: true }));
+  }
 
-  for (const platform of platforms) {
+  return Promise.all(platforms.map(async (platform): Promise<McpSyncResult> => {
     const configPath = platform.mcpConfigPath;
-
-    if (dryRun) {
-      results.push({ platform: platform.name, configPath, ok: true });
-      continue;
-    }
-
     try {
       // Read existing JSON (if any), preserving all other keys
       let existing: Record<string, unknown> = {};
@@ -68,14 +64,12 @@ export async function syncMCP(
       await fs.writeFile(tmp, out, "utf-8");
       await fs.rename(tmp, configPath);
 
-      results.push({ platform: platform.name, configPath, ok: true });
+      return { platform: platform.name, configPath, ok: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      results.push({ platform: platform.name, configPath, ok: false, error: msg });
+      return { platform: platform.name, configPath, ok: false, error: msg };
     }
-  }
-
-  return results;
+  }));
 }
 
 export { displayPath } from "../utils/fs-utils.ts";
@@ -85,9 +79,7 @@ export async function cleanMCP(
   serverNames: string[],
   platforms: Platform[],
 ): Promise<McpSyncResult[]> {
-  const results: McpSyncResult[] = [];
-
-  for (const platform of platforms) {
+  return Promise.all(platforms.map(async (platform): Promise<McpSyncResult> => {
     const configPath = platform.mcpConfigPath;
     try {
       let existing: Record<string, unknown> = {};
@@ -95,8 +87,7 @@ export async function cleanMCP(
         const raw = await fs.readFile(configPath, "utf-8");
         existing = JSON.parse(raw) as Record<string, unknown>;
       } catch {
-        results.push({ platform: platform.name, configPath, ok: true });
-        continue;
+        return { platform: platform.name, configPath, ok: true };
       }
 
       const servers = (existing[platform.mcpKey] ?? {}) as Record<string, unknown>;
@@ -110,12 +101,10 @@ export async function cleanMCP(
       await fs.writeFile(tmp, out, "utf-8");
       await fs.rename(tmp, configPath);
 
-      results.push({ platform: platform.name, configPath, ok: true });
+      return { platform: platform.name, configPath, ok: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      results.push({ platform: platform.name, configPath, ok: false, error: msg });
+      return { platform: platform.name, configPath, ok: false, error: msg };
     }
-  }
-
-  return results;
+  }));
 }

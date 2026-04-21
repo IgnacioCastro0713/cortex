@@ -27,6 +27,7 @@ const logMock = {
   error: mock.fn(),
   info: mock.fn(),
   dim: mock.fn(),
+  verbose: mock.fn(),
   header: mock.fn(),
   separator: mock.fn(),
   outro: mock.fn(),
@@ -37,6 +38,7 @@ mock.module(srcUrl("core/resolver.ts"), {
     readConfigOrExit: readConfigOrExitMock,
     resolveEntries: resolveEntriesMock,
     deduplicateEntries: (entries: Entry[]) => entries,
+    expandEntries: (entries: Entry[]) => Promise.resolve(entries),
     getSections: (config: { skills: { paths: string[] }; agents: { paths: string[] } }) => [
       { name: "skills", paths: config.skills.paths },
       { name: "agents", paths: config.agents.paths },
@@ -66,13 +68,24 @@ mock.module(srcUrl("core/mcp.ts"), {
     displayPath: (p: string) => p,
   },
 });
+const mockPlatformMap: Record<string, { name: string; targetDir: string; mcpConfigPath: string; mcpKey: string }> = {
+  copilot: { name: "copilot", targetDir: "/mock/home/.github", mcpConfigPath: "/mock/home/.github/mcp.json", mcpKey: "mcpServers" },
+  gemini:  { name: "gemini",  targetDir: "/mock/home/.gemini", mcpConfigPath: "/mock/home/.gemini/settings.json", mcpKey: "mcpServers" },
+};
+
 mock.module(srcUrl("core/constants.ts"), {
   namedExports: {
     CORTEX_DIR: "/mock/.cortex",
     AI_DIR: "/mock/.cortex/ai",
     DEPS_DIR: "/mock/.cortex/deps",
-    PLATFORMS: [{ name: "copilot", targetDir: "/mock/home/.github" }, { name: "gemini", targetDir: "/mock/home/.gemini" }],
-    getPlatform: (name: string) => ({ copilot: { name: "copilot", targetDir: "/mock/home/.github" }, gemini: { name: "gemini", targetDir: "/mock/home/.gemini" } })[name],
+    PLATFORMS: Object.values(mockPlatformMap),
+    getPlatform: (name: string) => mockPlatformMap[name],
+    resolvePlatforms: (names: string[], _custom?: unknown, warn?: (msg: string) => void) =>
+      names.map((n) => {
+        const p = mockPlatformMap[n];
+        if (!p) { warn?.(`Unknown platform "${n}" — skipping.`); return undefined; }
+        return p;
+      }).filter(Boolean),
   },
 });
 

@@ -7,6 +7,8 @@ import { update } from "./commands/update.ts";
 import { sync } from "./commands/sync.ts";
 import { list } from "./commands/list.ts";
 import { clean } from "./commands/clean.ts";
+import { status } from "./commands/status.ts";
+import { setVerbose } from "./utils/log.ts";
 
 const HELP = `
 cortex — Knowledge distribution engine
@@ -18,12 +20,14 @@ Commands:
   init     Generate ~/.cortex/cortex.toml and ensure ~/.cortex/ai structure exists
   update   Pull latest changes for ~/.cortex/ai and all deps
   sync     Copy knowledge files and MCP configs into global platform directories
+  status   Show sync state of each configured file (synced, modified, new)
   list     Show the map of linked files
   clean    Remove all cortex-managed files from platform directories
 
 Options:
   --dry-run, -d   Preview sync without making changes
   --force, -f     Overwrite locally modified files
+  --verbose, -V   Show verbose diagnostic output
   --version, -v   Show version
   --help, -h      Show this help message
 `.trim();
@@ -36,8 +40,11 @@ async function main(): Promise<void> {
       version: { type: "boolean", short: "v", default: false },
       "dry-run": { type: "boolean", short: "d", default: false },
       force: { type: "boolean", short: "f", default: false },
+      verbose: { type: "boolean", short: "V", default: false },
     },
   });
+
+  if (values.verbose) setVerbose(true);
 
   if (values.version) {
     const require = createRequire(import.meta.url);
@@ -65,6 +72,9 @@ async function main(): Promise<void> {
         dryRun: values["dry-run"],
         force: values.force,
       });
+      break;
+    case "status":
+      await status();
       break;
     case "list":
       await list();
